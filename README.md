@@ -57,7 +57,7 @@ Cracked Oura can leverage local LLMs to analyze your health data and provide ins
 ### Installation
 1.  **Download** the latest release for your operating system:
     -   [Download for macOS (.dmg)](https://github.com/EIrno/Cracked-Oura/releases)
-    -   [Download for Windows (.exe)](https://github.com/EIrno/Cracked-Oura/releases) *(Coming Soon)*
+    -   [Download for Windows (.exe)](https://github.com/EIrno/Cracked-Oura/releases)
 
 2.  **Install & Run** the application.
 3.  **Login** to your Oura account when prompted to sync your historical data.
@@ -89,6 +89,8 @@ We welcome contributions.
 -   **Backend:** Python, FastAPI, SQLite
 
 ### Build from Source
+
+**macOS / Linux:**
 ```bash
 # 1. Clone Repository
 git clone https://github.com/EIrno/Cracked-Oura.git
@@ -97,8 +99,9 @@ cd Cracked-Oura
 # 2. Setup Backend
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
+pip install pyinstaller
 
 # 3. Setup Frontend
 cd ../frontend
@@ -106,10 +109,35 @@ npm install
 npm run dev
 ```
 
+**Windows (PowerShell):**
+```powershell
+# 1. Clone Repository
+git clone https://github.com/EIrno/Cracked-Oura.git
+cd Cracked-Oura
+
+# 2. Setup Backend
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install pyinstaller
+
+# 3. Setup Frontend
+cd ..\frontend
+npm install
+npm run dev
+```
+If you're using Command Prompt, activate the environment with:
+```bat
+venv\Scripts\activate.bat
+```
+
 ### Build for Production
-To create a standalone application installer:
+To create a standalone application installer (works on macOS, Windows, and Linux):
 ```bash
 cd frontend
 npm run build
-# Output will be in frontend/dist-electron/
+# macOS: outputs a .dmg in frontend/dist/
+# Windows: outputs a Setup .exe in frontend/dist/
+# Linux: outputs .AppImage and .deb in frontend/dist/
 ```
