@@ -57,7 +57,7 @@ Cracked Oura can leverage local LLMs to analyze your health data and provide ins
 ### Installation
 1.  **Download** the latest release for your operating system:
     -   [Download for macOS (.dmg)](https://github.com/EIrno/Cracked-Oura/releases)
-    -   [Download for Windows (.exe)](https://github.com/EIrno/Cracked-Oura/releases)
+    -   [Download for Windows (.exe)](https://github.com/EIrno/Cracked-Oura/releases) *(when available in release assets)*
 
 2.  **Install & Run** the application.
 3.  **Login** to your Oura account when prompted to sync your historical data.
