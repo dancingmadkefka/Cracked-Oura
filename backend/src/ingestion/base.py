@@ -12,6 +12,7 @@ from backend.src.models import Base
 # Configure Logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("IngestionBase")
+SQLITE_SAFE_VARIABLE_LIMIT = 900
 
 class IngestionBase:
     """
@@ -112,6 +113,19 @@ class IngestionBase:
                      row_dict[col.name] = val
                 clean_data.append(row_dict)
             data = clean_data
+
+        columns_per_row = max(1, len(data[0]))
+        max_batch_size = max(1, SQLITE_SAFE_VARIABLE_LIMIT // columns_per_row)
+        if len(data) > max_batch_size:
+            logger.info(
+                "Splitting %s records for %s into batches of %s to stay under SQLite variable limits.",
+                len(data),
+                model.__tablename__,
+                max_batch_size,
+            )
+            for i in range(0, len(data), max_batch_size):
+                self._upsert(model, data[i : i + max_batch_size], index_elements)
+            return
 
         try:
             stmt = insert(model).values(data)

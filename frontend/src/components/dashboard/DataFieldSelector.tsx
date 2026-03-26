@@ -243,7 +243,7 @@ export function DataFieldSelector({ onSelect, selectedPath, selectedPaths, multi
             })
             .catch(err => {
                 console.error("Failed to fetch schema:", err);
-                setError(err.message);
+                setError(err?.message || 'Unknown error');
                 setLoading(false);
             });
     }, []);

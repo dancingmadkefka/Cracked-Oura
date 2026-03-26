@@ -22,3 +22,14 @@ oura-downloads/
 # IDE
 .vscode/
 .idea/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Android
+android-mobile/.gradle/
+android-mobile/local.properties
+*.iml

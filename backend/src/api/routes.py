@@ -69,6 +69,26 @@ class DashboardConfigRequest(BaseModel):
 class IngestRequest(BaseModel):
     file_path: str
 
+
+def _coerce_downloaded_zip_path(result: Any) -> str:
+    if isinstance(result, str) and result:
+        return result
+
+    if isinstance(result, dict):
+        status = result.get("status")
+        if status == "otp_required":
+            raise HTTPException(
+                status_code=409,
+                detail="OTP required before download can continue. Complete login again in Settings.",
+            )
+        message = result.get("message") or "Download did not return a ZIP file."
+        raise HTTPException(status_code=500, detail=f"Download failed: {message}")
+
+    raise HTTPException(
+        status_code=500,
+        detail="Download failed: no ZIP file was returned from Oura.",
+    )
+
 # -----------------------------------------------------------------------------
 # Background Tasks
 # -----------------------------------------------------------------------------
@@ -193,13 +213,8 @@ async def download_export(db: Session = Depends(get_db)):
     """
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = await automator.download_existing_export(temp_dir)
-            
-            if isinstance(zip_path, dict) and zip_path.get("status") == "error":
-                raise HTTPException(status_code=500, detail=f"Download failed: {zip_path.get('message')}")
-            
-            if not zip_path:
-                raise HTTPException(status_code=500, detail="Download failed: Button not found or timeout.")
+            result = await automator.download_existing_export(temp_dir)
+            zip_path = _coerce_downloaded_zip_path(result)
 
             # Ingest
             parser = OuraParser(db)

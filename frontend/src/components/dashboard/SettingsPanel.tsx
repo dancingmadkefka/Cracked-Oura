@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { X, Loader2, AlertCircle, Download, Copy, Upload } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { api, type AutomationStatusResponse } from '@/lib/api';
+import { Switch } from "@/components/ui/switch";
+import { api, type AutomationStatusResponse, type MobileSyncSettings } from '@/lib/api';
 
 interface SettingsPanelProps {
     onClose: () => void;
@@ -23,6 +24,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const [activeTab, setActiveTab] = useState<'automation' | 'layout'>('automation');
 
     const [dailySyncTime, setDailySyncTime] = useState("09:00");
+    const [mobileSync, setMobileSync] = useState<MobileSyncSettings | null>(null);
+    const [mobileSyncEnabled, setMobileSyncEnabled] = useState(false);
+    const [mobileSyncToken, setMobileSyncToken] = useState("");
+    const [mobileSyncHost, setMobileSyncHost] = useState("0.0.0.0");
+    const [mobileSyncPort, setMobileSyncPort] = useState("8037");
+    const [mobileSyncWindowDays, setMobileSyncWindowDays] = useState("180");
 
     useEffect(() => {
         // Fetch settings on mount
@@ -32,6 +39,17 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 if (data.email) setEmail(data.email);
             })
             .catch(err => console.error("Failed to fetch settings", err));
+
+        api.getMobileSyncSettings()
+            .then(data => {
+                setMobileSync(data);
+                setMobileSyncEnabled(data.enabled);
+                setMobileSyncToken(data.token);
+                setMobileSyncHost(data.bind_host);
+                setMobileSyncPort(String(data.port));
+                setMobileSyncWindowDays(String(data.default_window_days));
+            })
+            .catch(err => console.error("Failed to fetch mobile sync settings", err));
     }, []);
 
     const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -42,7 +60,39 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             await api.saveSettings({ daily_sync_time: dailySyncTime, email });
             addLog(`Settings saved: Daily sync at ${dailySyncTime}`);
         } catch (err: any) {
-            setError(err.message);
+            setError(err?.message || 'Unknown error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const applyMobileSyncState = (data: MobileSyncSettings) => {
+        setMobileSync(data);
+        setMobileSyncEnabled(data.enabled);
+        setMobileSyncToken(data.token);
+        setMobileSyncHost(data.bind_host);
+        setMobileSyncPort(String(data.port));
+        setMobileSyncWindowDays(String(data.default_window_days));
+    };
+
+    const handleSaveMobileSync = async (regenerateToken = false) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const normalizedToken = mobileSyncToken.trim();
+            const data = await api.saveMobileSyncSettings({
+                enabled: mobileSyncEnabled,
+                token: regenerateToken ? undefined : normalizedToken || undefined,
+                regenerate_token: regenerateToken,
+                bind_host: mobileSyncHost,
+                port: Number(mobileSyncPort),
+                default_window_days: Number(mobileSyncWindowDays)
+            });
+            applyMobileSyncState(data);
+            addLog(regenerateToken ? "Mobile sync token regenerated." : "Mobile sync settings saved.");
+        } catch (err: any) {
+            setError(err?.message || 'Unknown error');
+            addLog(`Error: ${err?.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
@@ -57,7 +107,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             setStatus('idle');
             addLog("Session cleared.");
         } catch (err: any) {
-            setError(err.message);
+            setError(err?.message || 'Unknown error');
         } finally {
             setLoading(false);
         }
@@ -72,11 +122,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             await api.saveSettings({ daily_sync_time: dailySyncTime, email });
 
             const data = await api.startLogin(email);
-            addLog(data.message);
+            addLog(data?.message || 'Login started');
             setStatus('otp_needed');
         } catch (err: any) {
-            setError(err.message);
-            addLog(`Error: ${err.message}`);
+            const errMsg = err?.message || 'Unknown error';
+            setError(errMsg);
+            addLog(`Error: ${errMsg}`);
         } finally {
             setLoading(false);
         }
@@ -88,11 +139,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         addLog(`Submitting OTP...`);
         try {
             const data = await api.submitOtp(otp);
-            addLog(data.message);
+            addLog(data?.message || 'OTP submitted');
             setStatus('logged_in');
         } catch (err: any) {
-            setError(err.message);
-            addLog(`Error: ${err.message}`);
+            const errMsg = err?.message || 'Unknown error';
+            setError(errMsg);
+            addLog(`Error: ${errMsg}`);
         } finally {
             setLoading(false);
         }
@@ -104,13 +156,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         addLog(`Requesting data export...`);
         try {
             const data = await api.requestExport();
-            addLog(data.message);
+            addLog(data?.message || 'Export requested');
             setStatus('exporting');
             // Start polling
             pollStatus();
         } catch (err: any) {
-            setError(err.message);
-            addLog(`Error: ${err.message}`);
+            const errMsg = err?.message || 'Unknown error';
+            setError(errMsg);
+            addLog(`Error: ${errMsg}`);
             setLoading(false);
         }
     };
@@ -146,11 +199,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         addLog(`Downloading and ingesting data...`);
         try {
             const data = await api.downloadExport();
-            addLog(data.message);
+            addLog(data?.message || 'Download complete');
             setStatus('completed');
         } catch (err: any) {
-            setError(err.message);
-            addLog(`Error: ${err.message}`);
+            const errMsg = err?.message || 'Unknown error';
+            setError(errMsg);
+            addLog(`Error: ${errMsg}`);
         } finally {
             setLoading(false);
         }
@@ -166,11 +220,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         try {
             const data = await api.uploadZip(file);
-            addLog(data.message || "Upload complete");
+            addLog(data?.message || "Upload complete");
             setStatus('completed');
         } catch (err: any) {
-            setError(err.message);
-            addLog(`Error: ${err.message}`);
+            const errMsg = err?.message || 'Unknown error';
+            setError(errMsg);
+            addLog(`Error: ${errMsg}`);
         } finally {
             setLoading(false);
             // Reset input
@@ -231,6 +286,111 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                     <Button onClick={handleSaveSettings} disabled={loading} variant="outline">
                                         Save
                                     </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Mobile Sync</h3>
+
+                            <div className="rounded-lg border p-4 space-y-4">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <Label>Enable Mobile API</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Starts a token-protected sync server for the Android app.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={mobileSyncEnabled}
+                                        onCheckedChange={setMobileSyncEnabled}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <Label>Bind Host</Label>
+                                        <Input
+                                            value={mobileSyncHost}
+                                            onChange={e => setMobileSyncHost(e.target.value)}
+                                            placeholder="0.0.0.0"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Port</Label>
+                                        <Input
+                                            type="number"
+                                            value={mobileSyncPort}
+                                            onChange={e => setMobileSyncPort(e.target.value)}
+                                            placeholder="8037"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Default Sync Window (days)</Label>
+                                    <Input
+                                        type="number"
+                                        value={mobileSyncWindowDays}
+                                        onChange={e => setMobileSyncWindowDays(e.target.value)}
+                                        placeholder="180"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <Label>Sync Token</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => navigator.clipboard.writeText(mobileSyncToken)}
+                                                disabled={!mobileSyncToken}
+                                            >
+                                                <Copy className="mr-2 h-4 w-4" />
+                                                Copy
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleSaveMobileSync(true)}
+                                                disabled={loading}
+                                            >
+                                                Regenerate
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <Input
+                                        value={mobileSyncToken}
+                                        onChange={e => setMobileSyncToken(e.target.value)}
+                                        placeholder="Sync token"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-2">
+                                    <Button onClick={() => handleSaveMobileSync()} disabled={loading}>
+                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Save Mobile Sync Settings
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-2 rounded-md bg-secondary/40 p-3">
+                                    <p className="text-xs font-medium">Server status</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {mobileSync?.server_status || "Save settings to start the mobile sync server."}
+                                    </p>
+                                    <p className="text-xs font-medium pt-2">Launch mode</p>
+                                    <p className="text-xs font-mono break-all text-muted-foreground">
+                                        {mobileSync?.run_command || "Save settings to generate the run command."}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Android server URL format: <span className="font-mono">http://&lt;pc-or-tailscale-ip&gt;:{mobileSyncPort || "8037"}</span>
+                                    </p>
+                                    {mobileSync?.latest_day && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Latest local data day: {mobileSync.latest_day}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

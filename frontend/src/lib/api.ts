@@ -11,6 +11,19 @@ export interface ChatMessage {
     thoughts?: any[];
 }
 
+export interface MobileSyncSettings {
+    enabled: boolean;
+    token: string;
+    default_window_days: number;
+    bind_host: string;
+    port: number;
+    latest_day?: string | null;
+    has_data: boolean;
+    run_command: string;
+    server_running: boolean;
+    server_status: string;
+}
+
 export const api = {
     // --- Settings & Automation ---
     getSettings: async () => {
@@ -27,6 +40,30 @@ export const api = {
         });
         if (!res.ok) throw new Error('Failed to save settings');
         return res.json();
+    },
+
+    getMobileSyncSettings: async (): Promise<MobileSyncSettings> => {
+        const res = await fetch(`${BASE_URL}/api/mobile/settings`);
+        if (!res.ok) throw new Error('Failed to fetch mobile sync settings');
+        return res.json();
+    },
+
+    saveMobileSyncSettings: async (settings: {
+        enabled?: boolean;
+        token?: string;
+        regenerate_token?: boolean;
+        default_window_days?: number;
+        bind_host?: string;
+        port?: number;
+    }): Promise<MobileSyncSettings> => {
+        const res = await fetch(`${BASE_URL}/api/mobile/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to save mobile sync settings');
+        return data;
     },
 
     clearSession: async () => {

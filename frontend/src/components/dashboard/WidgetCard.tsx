@@ -25,21 +25,23 @@ export function WidgetCard({
     headerContent
 }: WidgetCardProps) {
     return (
-        <Card className={cn("h-full flex flex-col relative", className)}>
+        <Card className={cn("relative flex h-full flex-col overflow-hidden rounded-[26px] border border-white/8 bg-[linear-gradient(180deg,rgba(17,20,29,0.96),rgba(10,12,18,0.94))] shadow-[0_18px_60px_rgba(0,0,0,0.22)]", className)}>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_24%)]" />
             {isEditing && (
                 <div
-                    className="absolute top-0 left-1/2 -translate-x-1/2 z-[100] h-5 w-12 flex items-center justify-center bg-secondary/90 hover:bg-secondary backdrop-blur-[2px] rounded-b-lg border-b border-x border-white/10 transition-all shadow-sm cursor-move drag-handle opacity-0 group-hover:opacity-100"
+                    className="drag-handle absolute left-1/2 top-0 z-[100] flex h-6 w-14 -translate-x-1/2 items-center justify-center rounded-b-xl border-x border-b border-white/10 bg-white/10 backdrop-blur-[6px] opacity-0 shadow-sm transition-all group-hover:opacity-100 cursor-move"
                     title="Drag to move"
                 >
-                    <GripHorizontal className="w-4 h-4 text-muted-foreground" />
+                    <GripHorizontal className="h-4 w-4 text-white/65" />
                 </div>
             )}
-            <CardHeader className={cn("flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4 relative z-[50]")}>
+            <CardHeader className={cn("relative z-[50] flex flex-row items-center justify-between space-y-0 px-5 pb-3 pt-5")}>
                 <div className="flex flex-col">
-                    <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                    {subtitle && <p className="text-[10px] text-muted-foreground">{subtitle}</p>}
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-[hsl(var(--muted-foreground))]">Widget</p>
+                    <CardTitle className="mt-1 font-['Space_Grotesk',sans-serif] text-base font-semibold tracking-tight text-white">{title}</CardTitle>
+                    {subtitle && <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{subtitle}</p>}
                 </div>
-                <div className="flex items-center gap-2 relative z-[60]">
+                <div className="relative z-[60] flex items-center gap-2">
                     {headerContent}
 
                     {isEditing && (
@@ -47,7 +49,7 @@ export function WidgetCard({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6"
+                                className="h-8 w-8 rounded-xl text-white/65 hover:bg-white/8 hover:text-white"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onEdit?.();
@@ -58,7 +60,7 @@ export function WidgetCard({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                className="h-8 w-8 rounded-xl text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onDelete?.();
@@ -71,7 +73,7 @@ export function WidgetCard({
 
                 </div>
             </CardHeader>
-            <CardContent className="flex-1 min-h-0 p-4 pt-0 relative z-[1]">
+            <CardContent className="relative z-[1] flex-1 min-h-0 p-5 pt-0">
                 {children}
             </CardContent>
         </Card >

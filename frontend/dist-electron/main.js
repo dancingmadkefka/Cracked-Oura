@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
 const child_process_1 = require("child_process");
+const http_1 = __importDefault(require("http"));
 let mainWindow;
 let pythonProcess = null;
 let tray = null;
@@ -110,6 +111,31 @@ function createWindow() {
         mainWindow = null;
     });
 }
+function waitForBackendReady(timeoutMs = 20000) {
+    const start = Date.now();
+    return new Promise((resolve, reject) => {
+        const attempt = () => {
+            const request = http_1.default.get('http://127.0.0.1:8000/api/mobile/settings', (response) => {
+                response.resume();
+                if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
+                    resolve();
+                    return;
+                }
+                retry(new Error(`Backend readiness check returned ${response.statusCode}`));
+            });
+            request.on('error', (error) => retry(error));
+            request.setTimeout(1500, () => request.destroy(new Error('Backend readiness check timed out')));
+        };
+        const retry = (error) => {
+            if (Date.now() - start >= timeoutMs) {
+                reject(error);
+                return;
+            }
+            setTimeout(attempt, 500);
+        };
+        attempt();
+    });
+}
 function getPythonPath() {
     if (!isDev) {
         // Production: Backend is bundled inside the app
@@ -212,8 +238,15 @@ function startPythonBackend() {
         logToDesktop("pythonProcess is undefined after attempt!");
     }
 }
-electron_1.app.on('ready', () => {
+electron_1.app.on('ready', async () => {
     startPythonBackend();
+    try {
+        await waitForBackendReady();
+        logToDesktop('Backend ready. Opening desktop window.');
+    }
+    catch (error) {
+        logToDesktop(`Backend readiness check failed: ${error?.message || error}`);
+    }
     createWindow();
     createTray();
 });

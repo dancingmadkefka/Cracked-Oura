@@ -1,6 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from backend.src.api.routes import router
+from backend.src.api.mobile import router as mobile_router
 from backend.src.database import init_db
 
 import asyncio
@@ -10,6 +11,7 @@ from backend.src.automation import automator
 from backend.src.ingestion import OuraParser
 from backend.src.database import SessionLocal
 from backend.src.config import config_manager
+from backend.src.mobile_server_manager import mobile_server_manager
 import os
 from pydantic import BaseModel
 
@@ -47,11 +49,17 @@ async def lifespan(app: FastAPI):
         
     # Start background worker
     task = asyncio.create_task(background_worker())
+    if os.environ.get("CRACKED_OURA_DISABLE_MOBILE_AUTOSTART") != "1":
+        try:
+            mobile_server_manager.reconcile()
+        except Exception:
+            logger.exception("Mobile sync server reconcile failed during startup")
     
     yield
     
     # Shutdown (optional cleanup)
     # task.cancel()
+    mobile_server_manager.stop()
 
 app = FastAPI(
     title="Cracked Oura API",
@@ -77,6 +85,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(router)
+app.include_router(mobile_router)
 
 # --- API Models for Automation ---
 class AutomationConfig(BaseModel):
@@ -337,6 +346,11 @@ async def background_worker():
             # Check every minute if it's time to run
             now = datetime.now()
             cfg = config_manager.get_config()
+            if os.environ.get("CRACKED_OURA_DISABLE_MOBILE_AUTOSTART") != "1":
+                try:
+                    mobile_server_manager.reconcile()
+                except Exception:
+                    logger.exception("Mobile sync server reconcile failed in background worker")
             
             # Calculate next run time for display
             schedule_time_str = cfg.get("schedule_time", "11:00")
@@ -387,7 +401,14 @@ else:
 if __name__ == "__main__":
     import uvicorn
     import sys
-    
+    import os
+
+    if os.environ.get("CRACKED_OURA_RUN_MODE") == "mobile_server":
+        from backend.src.mobile_server import main as mobile_server_main
+
+        mobile_server_main()
+        raise SystemExit(0)
+
     # Check if running as a PyInstaller bundle
     if getattr(sys, 'frozen', False):
         try:

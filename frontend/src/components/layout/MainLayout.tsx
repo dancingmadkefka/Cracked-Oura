@@ -1,6 +1,17 @@
 import { AppSidebar } from "./AppSidebar";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+    Sparkles,
+    Calendar as CalendarIcon,
+    ChevronLeft,
+    ChevronRight,
+    BedDouble,
+    Activity,
+    BrainCircuit,
+    Footprints,
+    PanelRightOpen,
+    Settings2,
+} from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -10,6 +21,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 
 interface MainLayoutProps {
     children: React.ReactNode;
+    data?: any;
     rightPanel?: React.ReactNode;
     onChatToggle?: () => void;
     isChatOpen?: boolean;
@@ -33,6 +45,7 @@ interface MainLayoutProps {
 
 export function MainLayout({
     children,
+    data,
     rightPanel,
     onChatToggle,
     isChatOpen,
@@ -50,9 +63,39 @@ export function MainLayout({
     onChatPageSelect
 }: MainLayoutProps) {
     const activeDashboardName = dashboards.find(d => d.id === activeDashboardId)?.name || "Dashboard";
+    const summaryCards = [
+        {
+            label: "Sleep",
+            value: data?.sleep?.score ?? "--",
+            unit: data?.sleep?.score != null ? "/100" : "",
+            tone: "from-[#1f6feb] to-[#73a7ff]",
+            icon: BedDouble,
+        },
+        {
+            label: "Readiness",
+            value: data?.readiness?.score ?? "--",
+            unit: data?.readiness?.score != null ? "/100" : "",
+            tone: "from-[#178f5f] to-[#6de2a6]",
+            icon: BrainCircuit,
+        },
+        {
+            label: "Activity",
+            value: data?.activity?.score ?? "--",
+            unit: data?.activity?.score != null ? "/100" : "",
+            tone: "from-[#d9485f] to-[#ff9f7a]",
+            icon: Activity,
+        },
+        {
+            label: "Steps",
+            value: data?.activity?.steps?.toLocaleString?.() ?? data?.activity?.steps ?? "--",
+            unit: "",
+            tone: "from-[#7b5cff] to-[#c49eff]",
+            icon: Footprints,
+        },
+    ];
 
     return (
-        <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+        <div className="flex h-screen w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.08),_transparent_22%),linear-gradient(180deg,_hsl(var(--background))_0%,_hsl(var(--background-soft))_100%)] text-foreground">
             {/* Left Sidebar */}
             <AppSidebar
                 onSettingsClick={onSettingsClick}
@@ -69,16 +112,93 @@ export function MainLayout({
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
-                <header className="h-16 border-b flex items-center justify-between px-6 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-xl font-semibold">{activeDashboardName}</h1>
-                        <div className="h-6 w-px bg-border" />
+                <header className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,16,22,0.94),rgba(15,16,22,0.86))] px-6 py-5 backdrop-blur-xl">
+                    <div className="flex items-start justify-between gap-6">
+                        <div className="min-w-0 space-y-4">
+                            <div className="space-y-2">
+                                <p className="text-[11px] uppercase tracking-[0.28em] text-[hsl(var(--muted-foreground))]">
+                                    Command Center
+                                </p>
+                                <div className="flex items-center gap-3">
+                                    <h1 className="truncate font-['Space_Grotesk',sans-serif] text-3xl font-semibold tracking-tight text-white">
+                                        {activeDashboardName}
+                                    </h1>
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                        {activeView === 'chat-page' ? "Advisor mode" : "Dashboard mode"}
+                                    </span>
+                                </div>
+                                <p className="max-w-3xl text-sm text-[hsl(var(--muted-foreground))]">
+                                    One place to inspect recovery, sleep, activity, and ingestion state without digging through side panels.
+                                </p>
+                            </div>
 
-                        <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap gap-3">
+                                {summaryCards.map((card) => {
+                                    const Icon = card.icon;
+                                    return (
+                                        <div
+                                            key={card.label}
+                                            className="min-w-[155px] rounded-2xl border border-white/8 bg-white/5 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-[11px] uppercase tracking-[0.24em] text-[hsl(var(--muted-foreground))]">
+                                                        {card.label}
+                                                    </p>
+                                                    <div className="mt-2 flex items-end gap-1">
+                                                        <span className="font-['Space_Grotesk',sans-serif] text-2xl font-semibold text-white">
+                                                            {card.value}
+                                                        </span>
+                                                        {card.unit && (
+                                                            <span className="pb-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                                                {card.unit}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className={cn("rounded-2xl bg-gradient-to-br p-3 text-white shadow-lg", card.tone)}>
+                                                    <Icon className="h-4 w-4" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex shrink-0 flex-col items-end gap-4">
+                            <div className="flex items-center gap-2">
+                                {headerActions}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onSettingsClick}
+                                    className="gap-2 border-white/10 bg-white/5 text-white hover:bg-white/10"
+                                >
+                                    <Settings2 className="h-4 w-4" />
+                                    Settings
+                                </Button>
+                                <ModeToggle />
+                                <Button
+                                    variant={isChatOpen ? "secondary" : "outline"}
+                                    size="sm"
+                                    onClick={onChatToggle}
+                                    className={cn(
+                                        "gap-2 border-white/10 text-white",
+                                        isChatOpen ? "bg-white text-black hover:bg-white/90" : "bg-white/5 hover:bg-white/10",
+                                    )}
+                                >
+                                    {isChatOpen ? <PanelRightOpen className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                                    {isChatOpen ? "Close Advisor" : "Open Advisor"}
+                                </Button>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/8 bg-black/20 p-2 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
+                                <div className="flex items-center gap-1">
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="h-9 w-9"
+                                className="h-10 w-10 border-white/10 bg-white/5 text-white hover:bg-white/10"
                                 onClick={() => {
                                     if (onDateChange && selectedDate) {
                                         const prevDay = new Date(selectedDate);
@@ -95,7 +215,7 @@ export function MainLayout({
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-[240px] h-9 justify-start text-left font-normal",
+                                            "h-10 w-[260px] justify-start border-white/10 bg-white/5 text-left font-normal text-white hover:bg-white/10",
                                             !selectedDate && "text-muted-foreground"
                                         )}
                                     >
@@ -116,7 +236,7 @@ export function MainLayout({
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="h-9 w-9"
+                                className="h-10 w-10 border-white/10 bg-white/5 text-white hover:bg-white/10"
                                 onClick={() => {
                                     if (onDateChange && selectedDate) {
                                         const nextDay = new Date(selectedDate);
@@ -127,26 +247,18 @@ export function MainLayout({
                             >
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
+                                </div>
+                                <p className="px-2 pt-2 text-right text-[11px] uppercase tracking-[0.24em] text-[hsl(var(--muted-foreground))]">
+                                    Focus date
+                                </p>
+                            </div>
                         </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {headerActions}
-                        <ModeToggle />
-                        <Button
-                            variant={isChatOpen ? "secondary" : "outline"}
-                            size="sm"
-                            onClick={onChatToggle}
-                        >
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Ask AI
-                        </Button>
                     </div>
                 </header>
 
                 {/* Dashboard Content */}
                 <div className="flex-1 flex overflow-hidden">
-                    <main className="flex-1 overflow-auto p-6 relative">
+                    <main className="flex-1 overflow-auto px-6 pb-6 pt-5 relative">
                         {children}
                     </main>
 

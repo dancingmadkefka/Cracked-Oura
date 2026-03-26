@@ -38,13 +38,44 @@ class ConfigManager:
                 "is_active": True,
                 "headless": True,
                 "llm_model": "llama3.1:latest",
-                "llm_host": "http://localhost:11434"
+                "llm_host": "http://localhost:11434",
+                "mobile_sync_enabled": False,
+                "mobile_sync_token": "",
+                "mobile_sync_default_window_days": 180,
+                "mobile_sync_bind_host": "0.0.0.0",
+                "mobile_sync_port": 8037
             }
             self._save_file(self.config_path, default_config)
 
         # 2. Ensure dashboard config exists (or migrate)
         main_conf = self._load_file(self.config_path)
-        
+
+        default_main_values = {
+            "email": "",
+            "schedule_time": "11:00",
+            "last_run": None,
+            "next_run": None,
+            "status": "Idle",
+            "is_active": True,
+            "headless": True,
+            "llm_model": "llama3.1:latest",
+            "llm_host": "http://localhost:11434",
+            "mobile_sync_enabled": False,
+            "mobile_sync_token": "",
+            "mobile_sync_default_window_days": 180,
+            "mobile_sync_bind_host": "0.0.0.0",
+            "mobile_sync_port": 8037
+        }
+
+        missing_defaults = False
+        for key, value in default_main_values.items():
+            if key not in main_conf:
+                main_conf[key] = value
+                missing_defaults = True
+
+        if missing_defaults:
+            self._save_file(self.config_path, main_conf)
+
         # 2. Ensure dashboard config exists
         if not os.path.exists(self.dashboard_path):
              # Create empty default if doesn't exist

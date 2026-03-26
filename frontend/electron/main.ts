@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage } from 'electron';
 import path from 'path';
 import { spawn, ChildProcess } from 'child_process';
+import http from 'http';
 
 let mainWindow: BrowserWindow | null;
 let pythonProcess: ChildProcess | null = null;
@@ -121,6 +122,36 @@ function createWindow() {
     });
 }
 
+function waitForBackendReady(timeoutMs = 20000): Promise<void> {
+    const start = Date.now();
+
+    return new Promise((resolve, reject) => {
+        const attempt = () => {
+            const request = http.get('http://127.0.0.1:8000/api/mobile/settings', (response) => {
+                response.resume();
+                if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
+                    resolve();
+                    return
+                }
+                retry(new Error(`Backend readiness check returned ${response.statusCode}`));
+            });
+
+            request.on('error', (error) => retry(error));
+            request.setTimeout(1500, () => request.destroy(new Error('Backend readiness check timed out')));
+        };
+
+        const retry = (error: Error) => {
+            if (Date.now() - start >= timeoutMs) {
+                reject(error);
+                return;
+            }
+            setTimeout(attempt, 500);
+        };
+
+        attempt();
+    });
+}
+
 function getPythonPath(): string {
     if (!isDev) {
         // Production: Backend is bundled inside the app
@@ -230,8 +261,14 @@ function startPythonBackend() {
     }
 }
 
-app.on('ready', () => {
+app.on('ready', async () => {
     startPythonBackend();
+    try {
+        await waitForBackendReady();
+        logToDesktop('Backend ready. Opening desktop window.');
+    } catch (error: any) {
+        logToDesktop(`Backend readiness check failed: ${error?.message || error}`);
+    }
     createWindow();
     createTray();
 });

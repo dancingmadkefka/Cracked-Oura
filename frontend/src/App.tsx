@@ -77,6 +77,7 @@ function DashboardApp() {
 
   return (
     <MainLayout
+      data={data}
       rightPanel={renderRightPanel()}
       onChatToggle={() => setActivePanel(activePanel === 'chat' ? 'none' : 'chat')}
       isChatOpen={activePanel === 'chat'}

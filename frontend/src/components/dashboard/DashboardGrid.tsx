@@ -45,8 +45,27 @@ export function DashboardGrid({
 
     if (!mounted) return null;
 
+    if (!widgets.length) {
+        return (
+            <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-10 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+                <div className="max-w-2xl space-y-4">
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-[hsl(var(--muted-foreground))]">
+                        Empty dashboard
+                    </p>
+                    <h2 className="font-['Space_Grotesk',sans-serif] text-4xl font-semibold tracking-tight text-white">
+                        Build a dashboard that answers one question fast.
+                    </h2>
+                    <p className="text-base text-[hsl(var(--muted-foreground))]">
+                        Turn on layout editing, add a small number of decisive widgets, and use separate dashboards for daily focus,
+                        trends, and deeper review instead of mixing everything into one wall.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className={cn("w-full", isEditing && "bg-secondary/10 rounded-xl border border-dashed border-secondary/50")}>
+        <div className={cn("w-full rounded-[30px] border border-white/8 bg-black/10 shadow-[0_24px_80px_rgba(0,0,0,0.16)]", isEditing && "border-dashed border-white/20 bg-white/5")}>
             {isEditing ? (
                 <GridLayout
                     className="layout"

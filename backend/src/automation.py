@@ -187,10 +187,11 @@ class OuraAutomator:
             raise e
 
     def _is_logged_in(self) -> bool:
-        """Determines if user is logged in based on current URL."""
-        if not self.page: return False
-        url = self.page.url.rstrip('/')
-        return (url == self.base_url) and ("login" not in url) and ("authn" not in url)
+        """Determines if user appears logged in based on URL state."""
+        if not self.page:
+            return False
+        url = (self.page.url or "").lower().rstrip('/')
+        return ("membership.ouraring.com" in url) and ("login" not in url) and ("authn" not in url)
 
     async def _perform_login_actions(self) -> Dict[str, str]:
         """Interacts with the login form, handling email submission and checking for OTP requirements."""
@@ -253,20 +254,31 @@ class OuraAutomator:
         """Checks if OTP screen is active and handles the 'Send Code' intermediate step if present."""
         # Check for "Send code" intermediate page
         intermediate_btn = self.page.locator("button[name='selectedId']")
-        otp_input_name = self.page.locator("input[name='otp']")
-        otp_input_id = self.page.locator("#otp-code")
+        otp_selectors = [
+            "input[name='otp']",
+            "#otp-code",
+            "input[name='verification_code']",
+            "input[autocomplete='one-time-code']",
+            "input[inputmode='numeric']",
+        ]
 
-        if await intermediate_btn.is_visible() and \
-           not await otp_input_name.is_visible() and \
-           not await otp_input_id.is_visible():
-            logger.info("Found intermediate 'Send Code' button. Clicking...")
-            await intermediate_btn.click()
-            await self.page.wait_for_timeout(3000)
+        if await intermediate_btn.is_visible():
+            otp_visible = False
+            for selector in otp_selectors:
+                if await self.page.locator(selector).first.is_visible():
+                    otp_visible = True
+                    break
+            if not otp_visible:
+                logger.info("Found intermediate 'Send Code' button. Clicking...")
+                await intermediate_btn.click()
+                await self.page.wait_for_timeout(3000)
 
         # Check for OTP input visibility
-        if await otp_input_name.is_visible() or await otp_input_id.is_visible():
-            logger.info("OTP Login required.")
-            return {"status": "otp_required", "message": "OTP required"}
+        for selector in otp_selectors:
+            if await self.page.locator(selector).first.is_visible():
+                logger.info(f"OTP Login required (selector: {selector}).")
+                return {"status": "otp_required", "message": "OTP required"}
+
         return None
 
     async def submit_otp(self, otp: str):
@@ -276,32 +288,80 @@ class OuraAutomator:
 
         logger.info(f"Submitting OTP: {otp}")
         try:
-            # Locate OTP Input
-            otp_selector = "input[name='otp']"
-            if not await self.page.locator(otp_selector).is_visible():
-                if await self.page.locator("#otp-code").is_visible():
-                    otp_selector = "#otp-code"
-                elif await self.page.locator("input[name='verification_code']").is_visible():
-                    otp_selector = "input[name='verification_code']"
-                else:
-                    raise Exception("Could not find OTP input field")
-            
-            await self.page.fill(otp_selector, otp)
-            await self.page.dispatch_event(otp_selector, 'input')
-            
-            await self._click_submit()
+            otp_selectors = [
+                "input[name='otp']",
+                "#otp-code",
+                "input[name='verification_code']",
+                "input[autocomplete='one-time-code']",
+                "input[inputmode='numeric']",
+            ]
+
+            target_frame = None
+            otp_selector = None
+
+            for frame in self.page.frames:
+                for selector in otp_selectors:
+                    locator = frame.locator(selector).first
+                    try:
+                        if await locator.is_visible(timeout=800):
+                            target_frame = frame
+                            otp_selector = selector
+                            break
+                    except Exception:
+                        continue
+                if otp_selector:
+                    break
+
+            if not target_frame or not otp_selector:
+                raise Exception("Could not find OTP input field")
+
+            await target_frame.fill(otp_selector, otp)
+            await target_frame.dispatch_event(otp_selector, 'input')
+
+            # Try common submit controls first; fallback to Enter
+            submitted = False
+            submit_selectors = [
+                "button[type='submit']",
+                "#submit-button",
+                "button:has-text('Verify')",
+                "button:has-text('Continue')",
+                "button:has-text('Submit')",
+            ]
+            for selector in submit_selectors:
+                btn = target_frame.locator(selector).first
+                try:
+                    if await btn.is_visible(timeout=500):
+                        await btn.click()
+                        submitted = True
+                        break
+                except Exception:
+                    continue
+
+            if not submitted:
+                await self.page.keyboard.press("Enter")
+
+            await self.page.wait_for_timeout(2000)
             await self.page.wait_for_load_state("networkidle")
-            
+
             # Verify success
             if self._is_logged_in():
                 logger.info("OTP Accepted. Login successful.")
                 await self.save_context()
                 return {"status": "success", "message": "Login successful!"}
-            else:
-                 if await self.page.get_by_text("Virheellinen koodi").is_visible() or \
-                    await self.page.get_by_text("Invalid code").is_visible():
-                     return {"status": "error", "message": "Invalid OTP code."}
-                 return {"status": "error", "message": "Login failed (Unknown state)."}
+
+            invalid_code = False
+            for err_text in ["Virheellinen koodi", "Invalid code", "incorrect code", "wrong code"]:
+                try:
+                    if await self.page.get_by_text(err_text).first.is_visible(timeout=500):
+                        invalid_code = True
+                        break
+                except Exception:
+                    continue
+
+            if invalid_code:
+                return {"status": "error", "message": "Invalid OTP code."}
+
+            return {"status": "error", "message": f"Login failed (Unknown state). Current URL: {self.page.url}"}
 
         except Exception as e:
             logger.error(f"OTP submission error: {e}")

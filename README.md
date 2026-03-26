@@ -87,6 +87,16 @@ We welcome contributions.
 ### Tech Stack
 -   **Frontend:** Electron, React, TypeScript, Tailwind
 -   **Backend:** Python, FastAPI, SQLite
+-   **Mobile:** Kotlin, Jetpack Compose, Room, DataStore, Retrofit
+
+### Android Mobile Sync
+
+This repo now includes:
+
+- A token-protected mobile sync API on the desktop/backend side
+- A native Android client under [`android-mobile/`](android-mobile)
+
+Setup and usage are documented in [`docs/android-mobile-sync.md`](docs/android-mobile-sync.md).
 
 ### Build from Source
 
