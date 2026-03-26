@@ -179,5 +179,26 @@ export const api = {
         });
         if (!res.ok) throw new Error('Chat request failed');
         return res.json();
-    }
+    },
+
+    // --- Connection Health ---
+    healthCheck: async (): Promise<boolean> => {
+        try {
+            const res = await fetch(`${BASE_URL}/api/settings`, { method: 'HEAD' });
+            return res.ok;
+        } catch {
+            return false;
+        }
+    },
+
+    getSyncStatus: async (): Promise<{
+        status: string;
+        last_run: string | null;
+        next_run: string | null;
+        [key: string]: any;
+    }> => {
+        const res = await fetch(`${BASE_URL}/api/automation/check-status`, { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to fetch sync status');
+        return res.json();
+    },
 };

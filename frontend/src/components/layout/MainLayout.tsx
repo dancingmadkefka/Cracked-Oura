@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, isToday, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Dashboard } from "@/types";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -22,6 +22,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 interface MainLayoutProps {
     children: React.ReactNode;
     data?: any;
+    isDataLoading?: boolean;
     rightPanel?: React.ReactNode;
     onChatToggle?: () => void;
     isChatOpen?: boolean;
@@ -29,6 +30,11 @@ interface MainLayoutProps {
     onDateChange?: (date: Date | undefined) => void;
     onSettingsClick?: () => void;
     headerActions?: React.ReactNode;
+
+    // Connection Health
+    connectionStatus?: 'connected' | 'disconnected' | 'checking';
+    syncInfo?: { status: string; lastRun: string | null; nextRun: string | null };
+    onRetryConnection?: () => void;
 
     // Dashboard Props
     dashboards: Dashboard[];
@@ -46,6 +52,7 @@ interface MainLayoutProps {
 export function MainLayout({
     children,
     data,
+    isDataLoading,
     rightPanel,
     onChatToggle,
     isChatOpen,
@@ -53,6 +60,9 @@ export function MainLayout({
     onDateChange,
     onSettingsClick,
     headerActions,
+    connectionStatus,
+    syncInfo,
+    onRetryConnection,
     dashboards,
     activeDashboardId,
     onDashboardSelect,
@@ -70,6 +80,7 @@ export function MainLayout({
             unit: data?.sleep?.score != null ? "/100" : "",
             tone: "from-[#1f6feb] to-[#73a7ff]",
             icon: BedDouble,
+            skeletonWidth: "w-16",
         },
         {
             label: "Readiness",
@@ -77,6 +88,7 @@ export function MainLayout({
             unit: data?.readiness?.score != null ? "/100" : "",
             tone: "from-[#178f5f] to-[#6de2a6]",
             icon: BrainCircuit,
+            skeletonWidth: "w-16",
         },
         {
             label: "Activity",
@@ -84,6 +96,7 @@ export function MainLayout({
             unit: data?.activity?.score != null ? "/100" : "",
             tone: "from-[#d9485f] to-[#ff9f7a]",
             icon: Activity,
+            skeletonWidth: "w-16",
         },
         {
             label: "Steps",
@@ -91,6 +104,7 @@ export function MainLayout({
             unit: "",
             tone: "from-[#7b5cff] to-[#c49eff]",
             icon: Footprints,
+            skeletonWidth: "w-24",
         },
     ];
 
@@ -126,6 +140,24 @@ export function MainLayout({
                                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))]">
                                         {activeView === 'chat-page' ? "Advisor mode" : "Dashboard mode"}
                                     </span>
+                                    {syncInfo && (
+                                        <span
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))]"
+                                            title={syncInfo.lastRun
+                                                ? `Last synced: ${formatDistanceToNow(new Date(syncInfo.lastRun))} ago`
+                                                : "Never synced"}
+                                        >
+                                            <span className={cn(
+                                                "h-2 w-2 rounded-full",
+                                                syncInfo.status === 'Processing' ? "bg-yellow-500 animate-pulse" :
+                                                syncInfo.status === 'Error' ? "bg-red-500" :
+                                                syncInfo.lastRun ? "bg-green-500" : "bg-gray-500"
+                                            )} />
+                                            {syncInfo.lastRun
+                                                ? `Synced ${formatDistanceToNow(new Date(syncInfo.lastRun))} ago`
+                                                : "Not synced"}
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="max-w-3xl text-sm text-[hsl(var(--muted-foreground))]">
                                     One place to inspect recovery, sleep, activity, and ingestion state without digging through side panels.
@@ -146,13 +178,19 @@ export function MainLayout({
                                                         {card.label}
                                                     </p>
                                                     <div className="mt-2 flex items-end gap-1">
-                                                        <span className="font-['Space_Grotesk',sans-serif] text-2xl font-semibold text-white">
-                                                            {card.value}
-                                                        </span>
-                                                        {card.unit && (
-                                                            <span className="pb-1 text-xs text-[hsl(var(--muted-foreground))]">
-                                                                {card.unit}
-                                                            </span>
+                                                        {isDataLoading ? (
+                                                            <div className={cn("h-7 rounded-md bg-white/15 animate-pulse", card.skeletonWidth)} />
+                                                        ) : (
+                                                            <>
+                                                                <span className="font-['Space_Grotesk',sans-serif] text-2xl font-semibold text-white">
+                                                                    {card.value}
+                                                                </span>
+                                                                {card.unit && (
+                                                                    <span className="pb-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                                                        {card.unit}
+                                                                    </span>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
@@ -210,6 +248,19 @@ export function MainLayout({
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
 
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={cn(
+                                    "h-10 border-white/10 bg-white/5 text-white hover:bg-white/10",
+                                    selectedDate && isToday(selectedDate) && "opacity-40 hover:bg-white/5"
+                                )}
+                                disabled={!!(selectedDate && isToday(selectedDate))}
+                                onClick={() => onDateChange?.(new Date())}
+                            >
+                                Today
+                            </Button>
+
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
@@ -259,6 +310,24 @@ export function MainLayout({
                 {/* Dashboard Content */}
                 <div className="flex-1 flex overflow-hidden">
                     <main className="flex-1 overflow-auto px-6 pb-6 pt-5 relative">
+                        {connectionStatus === 'disconnected' && (
+                            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+                                    <p className="text-sm text-red-300">
+                                        Backend is unreachable. The dashboard cannot load data.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onRetryConnection}
+                                    className="shrink-0 border-red-500/20 text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                                >
+                                    Retry
+                                </Button>
+                            </div>
+                        )}
                         {children}
                     </main>
 

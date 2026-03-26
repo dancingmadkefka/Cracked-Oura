@@ -34,7 +34,11 @@ function DashboardApp() {
     deleteWidget,
     selectedDate,
     setSelectedDate,
-    data
+    data,
+    isDataLoading,
+    connectionStatus,
+    syncInfo,
+    retryConnection
   } = useDashboard();
 
   // Chat State
@@ -78,6 +82,10 @@ function DashboardApp() {
   return (
     <MainLayout
       data={data}
+      isDataLoading={isDataLoading}
+      connectionStatus={connectionStatus}
+      syncInfo={syncInfo}
+      onRetryConnection={retryConnection}
       rightPanel={renderRightPanel()}
       onChatToggle={() => setActivePanel(activePanel === 'chat' ? 'none' : 'chat')}
       isChatOpen={activePanel === 'chat'}

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { WidgetInstance, Dashboard } from '@/types';
 import { useOuraData } from '@/hooks/useOuraData';
+import { useConnectionHealth } from '@/hooks/useConnectionHealth';
 import { useDashboardPersistence } from '@/hooks/useDashboardPersistence';
 import { format } from 'date-fns';
 
@@ -50,6 +51,12 @@ interface DashboardContextType {
     selectedDate: Date;
     setSelectedDate: (date: Date) => void;
     data: any;
+    isDataLoading: boolean;
+
+    // Connection & Sync State
+    connectionStatus: 'connected' | 'disconnected' | 'checking';
+    syncInfo: { status: string; lastRun: string | null; nextRun: string | null };
+    retryConnection: () => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -76,6 +83,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     // Data Fetching
     const dateString = format(selectedDate, 'yyyy-MM-dd');
     const data = useOuraData(dateString);
+    const isDataLoading = data.isLoading;
+    const { connectionStatus, syncInfo, retryNow } = useConnectionHealth();
 
     // --- Effects ---
 
@@ -264,7 +273,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             deleteWidget,
             selectedDate,
             setSelectedDate,
-            data
+            data,
+            isDataLoading,
+            connectionStatus,
+            syncInfo,
+            retryConnection: retryNow
         }}>
             {children}
         </DashboardContext.Provider>

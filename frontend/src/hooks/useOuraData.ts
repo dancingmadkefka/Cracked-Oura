@@ -41,10 +41,13 @@ export interface ResilienceData {
 
 export const useOuraData = (date: string) => {
     const [data, setData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [history, setHistory] = useState<{ sleep: any[], activity: any[], readiness: any[] }>({ sleep: [], activity: [], readiness: [] });
 
     useEffect(() => {
         if (!date) return;
+
+        setIsLoading(true);
 
         // Fetch full daily dump with retry
         let attempts = 0;
@@ -52,11 +55,16 @@ export const useOuraData = (date: string) => {
 
         const fetchData = () => {
             api.getDailyData(date)
-                .then(data => setData(data))
+                .then(data => {
+                    setData(data);
+                    setIsLoading(false);
+                })
                 .catch(() => {
                     attempts++;
                     if (attempts < maxAttempts) {
                         setTimeout(fetchData, 1000);
+                    } else {
+                        setIsLoading(false);
                     }
                 });
         };
@@ -103,6 +111,7 @@ export const useOuraData = (date: string) => {
             breathing_disturbance_index: data.sleep.breathing_disturbance_index
         } : null,
         resilience: data?.resilience ? [data.resilience] : [], // Adapter for array expectation if needed
-        history
+        history,
+        isLoading
     };
 };
