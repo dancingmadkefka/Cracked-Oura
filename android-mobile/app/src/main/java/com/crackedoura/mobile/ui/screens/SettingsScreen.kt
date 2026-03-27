@@ -5,12 +5,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -23,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.crackedoura.mobile.data.repository.SyncConfigDraft
 import com.crackedoura.mobile.data.repository.SyncConfigValidator
 import com.crackedoura.mobile.ui.MainUiState
 import com.crackedoura.mobile.ui.formatDateTimeLabel
@@ -34,11 +37,18 @@ private val presetWindowDays = listOf(30, 90, 180, 365)
 fun SettingsScreen(
     padding: PaddingValues,
     uiState: MainUiState,
-    onSaveSettings: (String, String, Int) -> Unit,
-    onSaveAndSync: (String, String, Int) -> Unit,
+    onSaveSettings: (String, String, String, String, Int) -> Unit,
+    onSaveAndSync: (String, String, String, String, Int) -> Unit,
+    onDarkModeToggle: (Boolean?) -> Unit,
 ) {
-    var serverUrl by rememberSaveable(uiState.settings.serverUrl) {
-        mutableStateOf(uiState.settings.serverUrl)
+    var localServerUrl by rememberSaveable(uiState.settings.localServerUrl) {
+        mutableStateOf(uiState.settings.localServerUrl)
+    }
+    var tailscaleServerUrl by rememberSaveable(uiState.settings.tailscaleServerUrl) {
+        mutableStateOf(uiState.settings.tailscaleServerUrl)
+    }
+    var preferredNetwork by rememberSaveable(uiState.settings.preferredNetwork) {
+        mutableStateOf(uiState.settings.preferredNetwork)
     }
     var token by rememberSaveable(uiState.settings.token) {
         mutableStateOf(uiState.settings.token)
@@ -47,14 +57,25 @@ fun SettingsScreen(
         mutableStateOf(uiState.settings.windowDays.toString())
     }
 
-    val draft = SyncConfigDraft(
-        serverUrl = serverUrl,
-        token = token,
-        windowDaysText = windowDays,
+    val hasEitherUrl = localServerUrl.isNotBlank() || tailscaleServerUrl.isNotBlank()
+    val localValidation = SyncConfigValidator.validateForSave(
+        com.crackedoura.mobile.data.repository.SyncConfigDraft(
+            serverUrl = localServerUrl,
+            token = token,
+            windowDaysText = windowDays,
+        ),
     )
-    val saveValidation = SyncConfigValidator.validateForSave(draft)
-    val syncValidation = SyncConfigValidator.validateForSync(draft)
-    val hasUnsavedChanges = serverUrl != uiState.settings.serverUrl ||
+    val tsValidation = SyncConfigValidator.validateForSave(
+        com.crackedoura.mobile.data.repository.SyncConfigDraft(
+            serverUrl = tailscaleServerUrl,
+            token = token,
+            windowDaysText = windowDays,
+        ),
+    )
+    val windowDaysInt = windowDays.toIntOrNull() ?: 0
+    val hasWindowError = windowDaysInt !in 7..730
+    val hasUnsavedChanges = localServerUrl != uiState.settings.localServerUrl ||
+        tailscaleServerUrl != uiState.settings.tailscaleServerUrl ||
         token != uiState.settings.token ||
         windowDays != uiState.settings.windowDays.toString()
 
@@ -65,33 +86,30 @@ fun SettingsScreen(
     ) {
         item {
             HeroCard(
-                eyebrow = "Desktop link",
-                title = if (syncValidation.errors.hasErrors) "Finish setup before syncing" else "Connection looks ready",
-                subtitle = if (syncValidation.errors.hasErrors) {
-                    "This screen blocks bad URLs, missing tokens, and impossible sync windows before anything hits the network."
-                } else {
-                    "The desktop URL and token are valid. Save and sync will use the normalized address below."
+                eyebrow = "Settings",
+                title = if (!hasEitherUrl || token.isBlank()) "Set up connection" else "Ready to sync",
+                subtitle = when {
+                    !hasEitherUrl -> "Add at least one server address to get started."
+                    token.isBlank() -> "Add your sync token from the desktop app."
+                    else -> "Ready to sync."
                 },
             )
         }
 
         item {
-            SectionCard(
-                title = "Server configuration",
-                subtitle = "Paste a LAN or Tailscale address. The app will normalize the scheme and port for you.",
-            ) {
+            SectionCard(title = "Server addresses") {
                 OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = { serverUrl = it },
-                    label = { Text("Desktop server") },
-                    placeholder = { Text("192.168.178.91 or http://100.x.y.z:8037") },
+                    value = localServerUrl,
+                    onValueChange = { localServerUrl = it },
+                    label = { Text("LAN address") },
+                    placeholder = { Text("192.168.178.91") },
                     supportingText = {
                         Text(
-                            saveValidation.errors.serverUrl
-                                ?: "Normalized: ${saveValidation.normalizedServerUrl.ifBlank { "Not ready yet" }}",
+                            localValidation.errors.serverUrl
+                                ?: "Normalized: ${localValidation.normalizedServerUrl.ifBlank { "Not set" }}",
                         )
                     },
-                    isError = saveValidation.errors.serverUrl != null,
+                    isError = localValidation.errors.serverUrl != null,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Uri,
                         capitalization = KeyboardCapitalization.None,
@@ -100,21 +118,62 @@ fun SettingsScreen(
                     singleLine = true,
                 )
                 OutlinedTextField(
+                    value = tailscaleServerUrl,
+                    onValueChange = { tailscaleServerUrl = it },
+                    label = { Text("Tailscale address") },
+                    placeholder = { Text("100.x.y.z") },
+                    supportingText = {
+                        Text(
+                            tsValidation.errors.serverUrl
+                                ?: "Normalized: ${tsValidation.normalizedServerUrl.ifBlank { "Not set" }}",
+                        )
+                    },
+                    isError = tsValidation.errors.serverUrl != null,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        capitalization = KeyboardCapitalization.None,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = preferredNetwork == "auto",
+                        onClick = { preferredNetwork = "auto" },
+                        label = { Text("Auto-detect") },
+                    )
+                    FilterChip(
+                        selected = preferredNetwork == "local",
+                        onClick = { preferredNetwork = "local" },
+                        label = { Text("LAN only") },
+                    )
+                    FilterChip(
+                        selected = preferredNetwork == "tailscale",
+                        onClick = { preferredNetwork = "tailscale" },
+                        label = { Text("Tailscale only") },
+                    )
+                }
+            }
+        }
+
+        item {
+            SectionCard(title = "Sync token") {
+                OutlinedTextField(
                     value = token,
                     onValueChange = { token = it.trimStart() },
-                    label = { Text("Sync token") },
+                    label = { Text("Token") },
                     placeholder = { Text("Generated in the desktop app") },
                     supportingText = {
                         Text(
-                            syncValidation.errors.token
-                                ?: if (saveValidation.normalizedToken.isNotBlank()) {
+                            localValidation.errors.token
+                                ?: if (localValidation.normalizedToken.isNotBlank()) {
                                     "Token accepted."
                                 } else {
                                     "Paste the sync token from the desktop app."
                                 },
                         )
                     },
-                    isError = syncValidation.errors.token != null,
+                    isError = localValidation.errors.token != null,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
@@ -122,10 +181,7 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(
-                title = "Sync window",
-                subtitle = "Shorter windows sync faster. Long windows backfill more history.",
-            ) {
+            SectionCard(title = "Sync window") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     presetWindowDays.forEach { preset ->
                         AssistChip(
@@ -139,9 +195,9 @@ fun SettingsScreen(
                     onValueChange = { value -> windowDays = value.filter { it.isDigit() } },
                     label = { Text("Days to cache") },
                     supportingText = {
-                        Text(syncValidation.errors.windowDays ?: "Allowed range: 7-730 days.")
+                        Text(if (hasWindowError) "Must be between 7 and 730 days." else "Allowed range: 7-730 days.")
                     },
-                    isError = syncValidation.errors.windowDays != null,
+                    isError = hasWindowError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -150,26 +206,41 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(
-                title = "Readiness",
-                subtitle = "Save and sync now share the same validation rules so broken settings never persist.",
-            ) {
+            SectionCard(title = "Appearance") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = uiState.darkMode == null,
+                        onClick = { onDarkModeToggle(null) },
+                        label = { Text("System") },
+                    )
+                    FilterChip(
+                        selected = uiState.darkMode == false,
+                        onClick = { onDarkModeToggle(false) },
+                        label = { Text("Light") },
+                    )
+                    FilterChip(
+                        selected = uiState.darkMode == true,
+                        onClick = { onDarkModeToggle(true) },
+                        label = { Text("Dark") },
+                    )
+                }
+            }
+        }
+
+        item {
+            SectionCard(title = "Status") {
                 StatusPill(
-                    label = if (saveValidation.errors.hasErrors) "Configuration has blocking issues" else "Configuration is valid",
-                    tone = if (saveValidation.errors.hasErrors) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
-                )
-                StatusPill(
-                    label = if (syncValidation.errors.hasErrors) "Sync still blocked" else "Ready to sync",
-                    tone = if (syncValidation.errors.hasErrors) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    label = if (!hasEitherUrl || token.isBlank() || hasWindowError) "Not ready" else "Ready to sync",
+                    tone = if (!hasEitherUrl || token.isBlank() || hasWindowError) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
                 )
                 Text(
-                    text = uiState.settings.lastSyncAt?.let { "Last successful sync: ${formatDateTimeLabel(it)}" }
-                        ?: "No completed sync on this device yet.",
+                    text = uiState.settings.lastSyncAt?.let { "Last sync: ${formatDateTimeLabel(it)}" }
+                        ?: "No completed sync yet.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = uiState.settings.lastError?.let { "Last error: $it" } ?: "No sync errors recorded.",
+                    text = uiState.settings.lastError?.let { "Last error: $it" } ?: "No sync errors.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (uiState.settings.lastError != null) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -177,55 +248,60 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(
-                title = "Actions",
-                subtitle = "Both actions normalize the configuration first. Nothing invalid is stored locally.",
-            ) {
+            SectionCard(title = "Actions") {
                 Button(
                     onClick = {
                         onSaveSettings(
-                            saveValidation.normalizedServerUrl,
-                            saveValidation.normalizedToken,
-                            saveValidation.normalizedWindowDays,
+                            localValidation.normalizedServerUrl,
+                            tsValidation.normalizedServerUrl,
+                            preferredNetwork,
+                            localValidation.normalizedToken,
+                            localValidation.normalizedWindowDays,
                         )
                     },
-                    enabled = !saveValidation.errors.hasErrors && hasUnsavedChanges,
+                    enabled = hasEitherUrl && token.isNotBlank() && !hasWindowError && hasUnsavedChanges,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                 ) {
-                    Text("Save normalized configuration")
+                    Text("Save")
                 }
                 Button(
                     onClick = {
                         onSaveAndSync(
-                            syncValidation.normalizedServerUrl,
-                            syncValidation.normalizedToken,
-                            syncValidation.normalizedWindowDays,
+                            localValidation.normalizedServerUrl,
+                            tsValidation.normalizedServerUrl,
+                            preferredNetwork,
+                            localValidation.normalizedToken,
+                            localValidation.normalizedWindowDays,
                         )
                     },
-                    enabled = !syncValidation.errors.hasErrors && !uiState.isSyncing,
+                    enabled = hasEitherUrl && token.isNotBlank() && !hasWindowError && !uiState.isSyncing,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                     ),
                 ) {
-                    Text(if (uiState.isSyncing) "Syncing now..." else "Save and sync now")
+                    if (uiState.isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    Text(if (uiState.isSyncing) "Syncing..." else "Save and sync")
                 }
             }
         }
 
-        if (saveValidation.errors.hasErrors || syncValidation.errors.hasErrors) {
+        val issues = listOfNotNull(
+            localValidation.errors.serverUrl,
+            tsValidation.errors.serverUrl,
+            localValidation.errors.token,
+            if (hasWindowError) "Sync window must be between 7 and 730 days." else null,
+        ).distinct()
+        if (issues.isNotEmpty()) {
             item {
-                SectionCard(
-                    title = "What to fix",
-                    subtitle = "The app surfaces only the checks that are currently blocking the action.",
-                ) {
-                    val issues = listOfNotNull(
-                        saveValidation.errors.serverUrl,
-                        syncValidation.errors.token,
-                        syncValidation.errors.windowDays,
-                    ).distinct()
+                SectionCard(title = "Issues to fix") {
                     issues.forEach { issue ->
                         Text(
                             text = "- $issue",

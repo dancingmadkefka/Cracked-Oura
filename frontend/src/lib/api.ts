@@ -184,7 +184,7 @@ export const api = {
     // --- Connection Health ---
     healthCheck: async (): Promise<boolean> => {
         try {
-            const res = await fetch(`${BASE_URL}/api/settings`, { method: 'HEAD' });
+            const res = await fetch(`${BASE_URL}/api/settings`, { method: 'GET' });
             return res.ok;
         } catch {
             return false;

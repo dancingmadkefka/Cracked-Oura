@@ -13,6 +13,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +34,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.crackedoura.mobile.ui.DailyInsight
 import com.crackedoura.mobile.ui.MetricFamily
@@ -59,7 +64,10 @@ private data class ChartPoint(
 fun TrendsScreen(
     padding: PaddingValues,
     insights: List<DailyInsight>,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     onOpenDayDetail: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
 ) {
     var selectedFamilyName by rememberSaveable { mutableStateOf(MetricFamily.Scores.name) }
     var selectedMetricId by rememberSaveable { mutableStateOf(defaultMetricForFamily(MetricFamily.Scores).id) }
@@ -98,6 +106,18 @@ fun TrendsScreen(
     val minPoint = points.minByOrNull { it.value }
     val maxPoint = points.maxByOrNull { it.value }
 
+    SwipeRefresh(
+        state = rememberSwipeRefreshState(isRefreshing),
+        onRefresh = onRefresh,
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+            )
+        },
+    ) {
     LazyColumn(
         modifier = Modifier.padding(padding),
         contentPadding = PaddingValues(16.dp),
@@ -105,10 +125,10 @@ fun TrendsScreen(
     ) {
         item {
             HeroCard(
-                eyebrow = "Trend explorer",
+                eyebrow = "Trends",
                 title = if (points.isEmpty()) "No trend data yet" else metric.title,
                 subtitle = if (windowInsights.isEmpty()) {
-                    "Sync from the desktop app to unlock local trend exploration."
+                    "Sync from the desktop app to see trends."
                 } else {
                     "${metric.description} Window: ${formatDateRange(windowInsights.firstOrNull()?.day, windowInsights.lastOrNull()?.day)}."
                 },
@@ -118,10 +138,7 @@ fun TrendsScreen(
 
         if (insights.isEmpty()) {
             item {
-                EmptyStateCard(
-                    title = "Trend cache empty",
-                    body = "The phone does not have enough local data yet to draw charts. Sync once from the desktop app first.",
-                )
+                SectionCard(title = "No trend data", subtitle = "Sync once to populate trend data.") {}
             }
             return@LazyColumn
         }
@@ -129,7 +146,6 @@ fun TrendsScreen(
         item {
             SectionCard(
                 title = "Metric family",
-                subtitle = "Choose the type of metric first so charts stay clearly grouped by scores, sleep, activity, or recovery.",
             ) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(MetricFamily.entries, key = { it.name }) { family ->
@@ -146,7 +162,6 @@ fun TrendsScreen(
         item {
             SectionCard(
                 title = "Metric",
-                subtitle = "Labels include units so you can see at a glance whether this is a score, duration, steps, calories, or a recovery marker.",
             ) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(familyMetrics, key = { it.id }) { definition ->
@@ -181,7 +196,7 @@ fun TrendsScreen(
             SectionCard(
                 title = "Chart",
                 subtitle = if (points.isEmpty()) {
-                    "This metric has no values inside the selected window."
+                    "No data for this metric in this window."
                 } else {
                     "Tap the chart to inspect a day, then open the dedicated detail view."
                 },
@@ -196,7 +211,7 @@ fun TrendsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         TrendSummaryTile(
                             title = "Average",
-                            value = averageValue?.let(metric.formatter) ?: "Unavailable",
+                            value = averageValue?.let(metric.formatter) ?: "--",
                             caption = metric.unitLabel,
                             color = metric.color,
                             modifier = Modifier.weight(1f),
@@ -234,7 +249,6 @@ fun TrendsScreen(
         item {
             SectionCard(
                 title = "Recent values",
-                subtitle = "A clear day-by-day ledger for the current metric and time window.",
             ) {
                 if (points.isEmpty()) {
                     Text(
@@ -254,6 +268,7 @@ fun TrendsScreen(
                 }
             }
         }
+    }
     }
 }
 
@@ -326,6 +341,7 @@ private fun TrendChart(
                 modifier = Modifier
                     .weight(1f)
                     .height(220.dp)
+                    .semantics { contentDescription = "${metric.title} chart, tap to select a day" }
                     .background(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f),
                         shape = RoundedCornerShape(22.dp),
@@ -475,7 +491,7 @@ private fun SelectedDayCallout(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = metricValue?.let(metric.formatter) ?: "Unavailable",
+                        text = metricValue?.let(metric.formatter) ?: "--",
                         style = MaterialTheme.typography.headlineSmall,
                         color = metric.color,
                     )
@@ -529,6 +545,7 @@ private fun RecentValueRow(
             Text(
                 text = "View",
                 modifier = Modifier
+                    .semantics { contentDescription = "View day detail for ${insight.day}" }
                     .background(
                         color = metric.color.copy(alpha = 0.12f),
                         shape = CircleShape,
@@ -587,7 +604,7 @@ private fun selectedDayContext(
         }
 
         "active_calories" -> {
-            "Target progress ${insight.activityGoalProgress?.let { formatPercent(it) } ?: "Unavailable"}"
+            "Target progress ${insight.activityGoalProgress?.let { formatPercent(it) } ?: "--"}"
         }
 
         "goal_progress" -> {
@@ -596,7 +613,7 @@ private fun selectedDayContext(
                     "m" -> "${formatMeters(it)} left"
                     else -> "$it ${insight.activityGoalBasis?.unit ?: ""} left".trim()
                 }
-            } ?: "Target details unavailable"
+            } ?: "--"
             remaining
         }
 
@@ -606,7 +623,7 @@ private fun selectedDayContext(
         }
 
         "average_hr" -> {
-            val lowest = insight.summary.lowestHeartRate?.let { "$it bpm lowest" } ?: "Lowest HR unavailable"
+            val lowest = insight.summary.lowestHeartRate?.let { "$it bpm lowest" } ?: "--"
             "$lowest • ${formatSignedDelta(insight.restingHeartRateDelta, "bpm")} vs baseline"
         }
 

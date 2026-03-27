@@ -55,22 +55,22 @@ private sealed class AppDestination(
     data object Overview : AppDestination(
         route = "overview",
         label = "Overview",
-        title = "Daily briefing",
-        icon = { Icon(Icons.Outlined.Home, contentDescription = null) },
+        title = "Overview",
+        icon = { Icon(Icons.Outlined.Home, contentDescription = "Overview") },
     )
 
     data object Trends : AppDestination(
         route = "trends",
         label = "Trends",
-        title = "Trend explorer",
-        icon = { Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = null) },
+        title = "Trends",
+        icon = { Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = "Trends") },
     )
 
     data object Settings : AppDestination(
         route = "settings",
         label = "Settings",
-        title = "Connection setup",
-        icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+        title = "Settings",
+        icon = { Icon(Icons.Outlined.Settings, contentDescription = "Settings") },
     )
 
     data object DayDetail : AppDestination(
@@ -189,9 +189,20 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                         padding = padding,
                         uiState = uiState,
                         insights = insights,
+                        isRefreshing = uiState.isSyncing,
+                        onRefresh = viewModel::syncNow,
                         onSync = viewModel::syncNow,
                         onOpenDayDetail = { day ->
                             navController.navigate(AppDestination.DayDetail.createRoute(day))
+                        },
+                        onNavigateToSettings = {
+                            navController.navigate(AppDestination.Settings.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                     )
                 }
@@ -200,8 +211,19 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                     TrendsScreen(
                         padding = padding,
                         insights = insights,
+                        isRefreshing = uiState.isSyncing,
+                        onRefresh = viewModel::syncNow,
                         onOpenDayDetail = { day ->
                             navController.navigate(AppDestination.DayDetail.createRoute(day))
+                        },
+                        onNavigateToSettings = {
+                            navController.navigate(AppDestination.Settings.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                     )
                 }
@@ -212,6 +234,7 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                         uiState = uiState,
                         onSaveSettings = viewModel::saveSettings,
                         onSaveAndSync = viewModel::saveSettingsAndSync,
+                        onDarkModeToggle = viewModel::setDarkMode,
                     )
                 }
 

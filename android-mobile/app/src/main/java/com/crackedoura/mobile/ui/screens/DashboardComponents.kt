@@ -27,13 +27,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.crackedoura.mobile.ui.theme.Cloud
 
 @Composable
 fun HeroCard(
     eyebrow: String,
     title: String,
-    subtitle: String,
+    subtitle: String = "",
     modifier: Modifier = Modifier,
     accent: List<Color> = listOf(
         MaterialTheme.colorScheme.primary,
@@ -65,11 +64,13 @@ fun HeroCard(
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.White,
                 )
-                Text(
+                if (subtitle.isNotBlank()) {
+                    Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.84f),
-                )
+                    )
+                }
                 if (content != null) {
                     content()
                 }
@@ -293,11 +294,5 @@ fun EmptyStateCard(
         title = title,
         modifier = modifier,
         subtitle = body,
-    ) {
-        Text(
-            text = "Nothing is cached on this device yet.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Cloud,
-        )
-    }
+    ) {}
 }

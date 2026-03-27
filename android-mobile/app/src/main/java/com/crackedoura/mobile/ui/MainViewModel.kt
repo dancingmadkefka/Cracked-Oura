@@ -28,12 +28,13 @@ data class MainUiState(
     val recentWorkouts: List<WorkoutEntity> = emptyList(),
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
+    val darkMode: Boolean? = null,
 )
 
 class MainViewModel(private val repository: OuraRepository) : ViewModel() {
     private companion object {
         const val TAG = "MainViewModel"
-        const val MAX_SUMMARY_DAYS = 730
+        const val MAX_SUMMARY_DAYS = 365
         const val MAX_WORKOUT_ROWS = 1500
     }
 
@@ -53,6 +54,7 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
             recentWorkouts = workouts,
             isSyncing = sync.isSyncing,
             syncMessage = sync.syncMessage,
+            darkMode = settings.darkMode,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -60,10 +62,10 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
         initialValue = MainUiState(),
     )
 
-    fun saveSettings(serverUrl: String, token: String, windowDays: Int) {
+    fun saveSettings(localServerUrl: String, tailscaleServerUrl: String, preferredNetwork: String, token: String, windowDays: Int) {
         viewModelScope.launch {
             runCatching {
-                repository.saveSyncSettings(serverUrl, token, windowDays)
+                repository.saveSyncSettings(localServerUrl, tailscaleServerUrl, preferredNetwork, token, windowDays)
             }.onSuccess {
                 AppLogger.i(TAG, "Settings saved")
                 syncState.update { it.copy(syncMessage = "Configuration saved.") }
@@ -76,12 +78,12 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
         }
     }
 
-    fun saveSettingsAndSync(serverUrl: String, token: String, windowDays: Int) {
+    fun saveSettingsAndSync(localServerUrl: String, tailscaleServerUrl: String, preferredNetwork: String, token: String, windowDays: Int) {
         if (syncState.value.isSyncing) return
 
         viewModelScope.launch {
             val saveResult = runCatching {
-                repository.saveSyncSettings(serverUrl, token, windowDays)
+                repository.saveSyncSettings(localServerUrl, tailscaleServerUrl, preferredNetwork, token, windowDays)
             }
             if (saveResult.isFailure) {
                 syncState.update {
@@ -110,6 +112,14 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
                     result.exceptionOrNull()?.message ?: "Sync failed."
                 },
             )
+        }
+    }
+
+    fun setDarkMode(enabled: Boolean?) {
+        viewModelScope.launch {
+            runCatching {
+                repository.saveDarkMode(enabled)
+            }
         }
     }
 

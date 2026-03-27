@@ -15,9 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.crackedoura.mobile.ui.ActivityGoalBasis
 import com.crackedoura.mobile.ui.DailyInsight
 import com.crackedoura.mobile.ui.MainUiState
@@ -32,21 +36,37 @@ import com.crackedoura.mobile.ui.formatPercent
 import com.crackedoura.mobile.ui.formatSignedDecimal
 import com.crackedoura.mobile.ui.formatSignedDelta
 import com.crackedoura.mobile.ui.formatTimeOnly
+import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
 
 @Composable
 fun OverviewScreen(
     padding: PaddingValues,
     uiState: MainUiState,
     insights: List<DailyInsight>,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     onSync: () -> Unit,
     onOpenDayDetail: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
 ) {
     val latest = insights.lastOrNull()
     val timeline = insights.takeLast(14).reversed()
     val hasToken = uiState.settings.token.isNotBlank()
-    val hasServer = uiState.settings.serverUrl.isNotBlank()
+    val hasServer = uiState.settings.localServerUrl.isNotBlank() || uiState.settings.tailscaleServerUrl.isNotBlank()
     val latestWorkouts = latest?.workouts.orEmpty()
 
+    SwipeRefresh(
+        state = rememberSwipeRefreshState(isRefreshing),
+        onRefresh = onRefresh,
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+            )
+        },
+    ) {
     LazyColumn(
         modifier = Modifier.padding(padding),
         contentPadding = PaddingValues(16.dp),
@@ -54,14 +74,14 @@ fun OverviewScreen(
     ) {
         item {
             HeroCard(
-                eyebrow = "Offline briefing",
+                eyebrow = "Overview",
                 title = latest?.let { "Latest day ${formatDayLabel(it.day)}" } ?: "No mobile cache yet",
                 subtitle = when {
                     uiState.settings.lastSyncAt != null && latest != null ->
-                        "Last sync ${formatDateTimeLabel(uiState.settings.lastSyncAt)} • ${insights.size} cached days ready offline."
+                        "Last sync ${formatDateTimeLabel(uiState.settings.lastSyncAt)} \u2022 ${insights.size} cached days."
                     uiState.settings.lastSyncAt != null ->
                         "Last sync ${formatDateTimeLabel(uiState.settings.lastSyncAt)}."
-                    else -> "Connect to the desktop app once and the phone will keep recent health trends available offline."
+                    else -> "Sync with the desktop app to see your latest data."
                 },
             ) {
                 Row(
@@ -97,10 +117,14 @@ fun OverviewScreen(
 
         if (latest == null) {
             item {
-                EmptyStateCard(
+                SectionCard(
                     title = "Nothing synced yet",
-                    body = "Open Settings, add the desktop address and token, then run your first sync. Trend charts and day detail unlock after that first snapshot.",
-                )
+                    subtitle = "Add your server address and token in Settings, then tap Sync.",
+                ) {
+                    Button(onClick = onNavigateToSettings) {
+                        Text("Open Settings")
+                    }
+                }
             }
             return@LazyColumn
         }
@@ -108,7 +132,6 @@ fun OverviewScreen(
         item {
             SectionCard(
                 title = "At a glance",
-                subtitle = "Derived summaries for ${formatDayLabel(latest.day)}. Labels stay explicit so you always know what each number means.",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     BriefingTile(
@@ -138,11 +161,11 @@ fun OverviewScreen(
                     )
                     BriefingTile(
                         title = "Recovery share",
-                        value = latest.recoveryShare?.let { formatPercent(it) } ?: "No stress split",
+                        value = latest.recoveryShare?.let { formatPercent(it) } ?: "--",
                         caption = latest.summary.recoveryHigh?.let { recovery ->
                             val stress = latest.summary.stressHigh ?: 0
                             "Recovery $recovery min vs stress $stress min"
-                        } ?: "Readiness stress split unavailable",
+                        } ?: "--",
                         accent = Color(0xFFD75A71),
                         modifier = Modifier.weight(1f),
                     )
@@ -153,7 +176,6 @@ fun OverviewScreen(
         item {
             SectionCard(
                 title = "Recent timeline",
-                subtitle = "Tap a day to open a dedicated detail view with sleep, activity, and recovery context.",
             ) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(timeline, key = { it.day }) { insight ->
@@ -169,7 +191,6 @@ fun OverviewScreen(
         item {
             SectionCard(
                 title = "Latest day summary",
-                subtitle = "Score cards stay separate from raw units so it is obvious what each metric means.",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OverviewScoreCard(
@@ -200,15 +221,14 @@ fun OverviewScreen(
         item {
             SectionCard(
                 title = "Sleep detail",
-                subtitle = "All-sessions total is used for sleep debt when available. Stage durations below refer to the primary synced session.",
             ) {
                 StatRow("Total sleep", formatDurationSeconds(latest.totalSleepSeconds))
                 StatRow("Estimated sleep need", formatDurationHours(latest.sleepNeedEstimateSeconds))
                 StatRow("Sleep debt", formatDurationHours(latest.sleepDebtSeconds))
                 StatRow("Nap sleep", formatDurationSeconds(latest.summary.napSleepDuration))
-                StatRow("Sessions counted", latest.summary.sleepSessionCount?.toString() ?: "Unavailable")
+                StatRow("Sessions counted", latest.summary.sleepSessionCount?.toString() ?: "--")
                 StatRow("Bedtime", "${formatTimeOnly(latest.summary.bedtimeStart)} - ${formatTimeOnly(latest.summary.bedtimeEnd)}")
-                StatRow("Sleep efficiency", latest.summary.sleepEfficiency?.let { "$it%" } ?: "Unavailable")
+                StatRow("Sleep efficiency", latest.summary.sleepEfficiency?.let { "$it%" } ?: "--")
                 StatRow("Deep sleep", formatDurationSeconds(latest.summary.deepSleepDuration))
                 StatRow("REM sleep", formatDurationSeconds(latest.summary.remSleepDuration))
                 StatRow("Awake time", formatDurationSeconds(latest.summary.awakeTime))
@@ -225,19 +245,18 @@ fun OverviewScreen(
         item {
             SectionCard(
                 title = "Activity and recovery",
-                subtitle = "Target context, HR markers, and readiness notes from the same day.",
             ) {
-                StatRow("Steps", latest.summary.steps?.let { formatCompactNumber(it) } ?: "Unavailable")
-                StatRow("Active calories", latest.summary.activeCalories?.let { "$it kcal" } ?: "Unavailable")
-                StatRow("Total calories", latest.summary.totalCalories?.let { "$it kcal" } ?: "Unavailable")
+                StatRow("Steps", latest.summary.steps?.let { formatCompactNumber(it) } ?: "--")
+                StatRow("Active calories", latest.summary.activeCalories?.let { "$it kcal" } ?: "--")
+                StatRow("Total calories", latest.summary.totalCalories?.let { "$it kcal" } ?: "--")
                 StatRow("Distance", formatMeters(latest.summary.equivalentWalkingDistance))
-                StatRow("Target progress", latest.activityGoalProgress?.let { formatPercent(it) } ?: "Unavailable")
-                StatRow("Avg HRV", latest.summary.averageHrv?.let { "$it ms" } ?: "Unavailable")
-                StatRow("Avg HR", latest.summary.averageHeartRate?.let { "${it.toInt()} bpm" } ?: "Unavailable")
-                StatRow("Lowest HR", latest.summary.lowestHeartRate?.let { "$it bpm" } ?: "Unavailable")
-                StatRow("Temp deviation", formatSignedDecimal(latest.summary.temperatureDeviation, "°C"))
-                StatRow("Resilience", latest.summary.resilienceLevel ?: "Unavailable")
-                StatRow("Vascular age", latest.summary.vascularAge?.toString() ?: "Unavailable")
+                StatRow("Target progress", latest.activityGoalProgress?.let { formatPercent(it) } ?: "--")
+                StatRow("Avg HRV", latest.summary.averageHrv?.let { "$it ms" } ?: "--")
+                StatRow("Avg HR", latest.summary.averageHeartRate?.let { "${it.toInt()} bpm" } ?: "--")
+                StatRow("Lowest HR", latest.summary.lowestHeartRate?.let { "$it bpm" } ?: "--")
+                StatRow("Temp deviation", formatSignedDecimal(latest.summary.temperatureDeviation, "\u00B0C"))
+                StatRow("Resilience", latest.summary.resilienceLevel ?: "--")
+                StatRow("Vascular age", latest.summary.vascularAge?.toString() ?: "--")
                 latest.summary.readinessDaySummary?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         text = it,
@@ -251,15 +270,10 @@ fun OverviewScreen(
         item {
             SectionCard(
                 title = "Workouts for ${formatDayMonth(latest.day)}",
-                subtitle = if (latestWorkouts.isEmpty()) {
-                    "No workouts were synced for this day."
-                } else {
-                    "Recent workouts line up with the selected day so activity context is not hidden."
-                },
             ) {
                 if (latestWorkouts.isEmpty()) {
                     Text(
-                        text = "Workout cards appear automatically when the synced day contains workout records.",
+                        text = "No workouts synced for this day.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -267,7 +281,7 @@ fun OverviewScreen(
                     latestWorkouts.forEach { workout ->
                         WorkoutSummaryRow(
                             title = workout.label ?: workout.activity?.replaceFirstChar { it.uppercase() } ?: "Workout",
-                            subtitle = "${formatTimeOnly(workout.startTime)} • ${workout.intensity ?: "Unknown intensity"}",
+                            subtitle = "${formatTimeOnly(workout.startTime)} \u2022 ${workout.intensity ?: "Unknown intensity"}",
                             trailing = workout.calories?.toInt()?.let { "$it kcal" } ?: "Tracked",
                         )
                     }
@@ -275,18 +289,7 @@ fun OverviewScreen(
             }
         }
 
-        item {
-            SectionCard(
-                title = "About sleep debt",
-                subtitle = "This app uses a clear approximation because exported Oura data does not expose the exact personal sleep-need model used by Oura.",
-            ) {
-                Text(
-                    text = "Approximation: rolling 14-day median of total sleep, including naps or short sessions when synced. The estimate appears only after 5 sleep days exist inside the last 14 days.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+    }
     }
 }
 
@@ -384,6 +387,7 @@ private fun TimelineDayCard(
     Box(
         modifier = Modifier
             .width(124.dp)
+            .semantics { contentDescription = "Day ${formatDayMonth(insight.day)}, tap to view details" }
             .background(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
                 shape = RoundedCornerShape(22.dp),
@@ -465,17 +469,17 @@ private fun WorkoutSummaryRow(
 private fun DailyInsight.activityGoalLabel(): String {
     return when (activityGoalBasis) {
         ActivityGoalBasis.Calories -> {
-            val remaining = activityGoalRemaining?.let { "$it kcal left" } ?: "Target context unavailable"
+            val remaining = activityGoalRemaining?.let { "$it kcal left" } ?: "--"
             val target = activityGoalTarget?.let { "Target $it kcal" } ?: remaining
-            "$target • $remaining"
+            "$target \u2022 $remaining"
         }
 
         ActivityGoalBasis.Distance -> {
             val target = activityGoalTarget?.let { formatMeters(it) } ?: "distance target"
-            val remaining = activityGoalRemaining?.let { "${formatMeters(it)} left" } ?: "Target context unavailable"
-            "Target $target • $remaining"
+            val remaining = activityGoalRemaining?.let { "${formatMeters(it)} left" } ?: "--"
+            "Target $target \u2022 $remaining"
         }
 
-        null -> "No calorie or distance target in synced data"
+        null -> "No target set"
     }
 }

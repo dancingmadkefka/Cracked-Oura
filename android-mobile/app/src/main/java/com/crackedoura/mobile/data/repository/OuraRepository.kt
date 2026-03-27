@@ -35,24 +35,57 @@ class OuraRepository(
     fun observeRecentWorkouts(limit: Int): Flow<List<WorkoutEntity>> =
         dao.observeRecentWorkouts(limit)
 
-    suspend fun saveSyncSettings(serverUrl: String, token: String, windowDays: Int) {
-        val validated = SyncConfigValidator.validatedConfigForSave(serverUrl, token, windowDays)
-        AppLogger.i(
-            TAG,
-            "Saving settings url=${validated.serverUrl} windowDays=${validated.windowDays} token=${AppLogger.redactToken(validated.token)}",
+    suspend fun saveDarkMode(enabled: Boolean?) {
+        preferencesRepository.saveDarkMode(enabled)
+    }
+
+    suspend fun saveSyncSettings(
+        localServerUrl: String,
+        tailscaleServerUrl: String,
+        preferredNetwork: String,
+        token: String,
+        windowDays: Int,
+    ) {
+        preferencesRepository.saveSettings(localServerUrl, tailscaleServerUrl, preferredNetwork, token, windowDays)
+        AppLogger.i(TAG, "Settings saved windowDays=$windowDays")
+    }
+
+    private suspend fun resolveServerUrl(): String {
+        val settings = preferencesRepository.currentSettings()
+        return when (settings.preferredNetwork) {
+            "local" -> settings.localServerUrl
+            "tailscale" -> settings.tailscaleServerUrl
+            else -> autoDetect(settings)
+        }
+    }
+
+    private suspend fun autoDetect(settings: SyncSettings): String {
+        val candidates = listOfNotNull(
+            settings.localServerUrl.takeIf { it.isNotBlank() },
+            settings.tailscaleServerUrl.takeIf { it.isNotBlank() },
         )
-        preferencesRepository.saveSettings(validated.serverUrl, validated.token, validated.windowDays)
+        if (candidates.isEmpty()) return ""
+        if (candidates.size == 1) return candidates.first()
+
+        val token = settings.token
+        if (token.isBlank()) return settings.lastUsedUrl ?: candidates.first()
+
+        val results = ServerReachabilityDetector.probeAll(candidates, token)
+        val fastest = results.firstOrNull { it.reachable }
+        return if (fastest != null) fastest.url else (settings.lastUsedUrl ?: candidates.first())
     }
 
     suspend fun syncNow(): Result<Unit> {
         return try {
             val settings = preferencesRepository.currentSettings()
-            val validated = SyncConfigValidator.validatedConfigForSync(settings)
+            val serverUrl = resolveServerUrl()
+            if (serverUrl.isBlank()) {
+                return Result.failure(SyncFailureException("No server URL configured."))
+            }
 
-            AppLogger.i(
-                TAG,
-                "Starting sync url=${validated.serverUrl} windowDays=${validated.windowDays} token=${AppLogger.redactToken(validated.token)}",
-            )
+            val validated = SyncConfigValidator.validatedConfigForSave(serverUrl, settings.token, settings.windowDays)
+
+            AppLogger.i(TAG, "Starting sync url=${validated.serverUrl} windowDays=${validated.windowDays}")
 
             apiService.ping("${validated.serverUrl}/api/mobile/ping", validated.token)
             val response = apiService.sync(
@@ -71,19 +104,15 @@ class OuraRepository(
             )
 
             preferencesRepository.recordSyncSuccess(response.generatedAt)
-            AppLogger.i(
-                TAG,
-                "Sync finished summaries=${summaries.size} workouts=${workouts.size} generatedAt=${response.generatedAt}",
-            )
+            preferencesRepository.recordSuccessfulUrl(validated.serverUrl)
+            AppLogger.i(TAG, "Sync finished summaries=${summaries.size} workouts=${workouts.size}")
             Result.success(Unit)
         } catch (throwable: CancellationException) {
             AppLogger.i(TAG, "Sync cancelled")
             throw throwable
         } catch (throwable: Exception) {
             val userMessage = throwable.toUserMessage()
-            preferencesRepository.recordSyncFailure(
-                userMessage,
-            )
+            preferencesRepository.recordSyncFailure(userMessage)
             AppLogger.e(TAG, "Sync failed: $userMessage", throwable)
             Result.failure(SyncFailureException(userMessage))
         }

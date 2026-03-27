@@ -35,9 +35,6 @@ object SyncConfigValidator {
     fun validateForSave(draft: SyncConfigDraft): SyncConfigValidationResult =
         validate(draft = draft, requireToken = true)
 
-    fun validateForSync(draft: SyncConfigDraft): SyncConfigValidationResult =
-        validate(draft = draft, requireToken = true)
-
     fun validatedConfigForSave(
         serverUrl: String,
         token: String,
@@ -48,27 +45,6 @@ object SyncConfigValidator {
                 serverUrl = serverUrl,
                 token = token,
                 windowDaysText = windowDays.toString(),
-            ),
-        )
-        if (result.errors.hasErrors) {
-            throw IllegalArgumentException(
-                result.errors.serverUrl ?: result.errors.token ?: result.errors.windowDays
-                ?: "Invalid sync settings.",
-            )
-        }
-        return ValidatedSyncConfig(
-            serverUrl = result.normalizedServerUrl,
-            token = result.normalizedToken,
-            windowDays = result.normalizedWindowDays,
-        )
-    }
-
-    fun validatedConfigForSync(settings: SyncSettings): ValidatedSyncConfig {
-        val result = validateForSync(
-            SyncConfigDraft(
-                serverUrl = settings.serverUrl,
-                token = settings.token,
-                windowDaysText = settings.windowDays.toString(),
             ),
         )
         if (result.errors.hasErrors) {

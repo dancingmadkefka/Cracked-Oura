@@ -39,7 +39,7 @@ fun DayDetailScreen(
             item {
                 EmptyStateCard(
                     title = "Day not cached",
-                    body = "This day is not present in the phone cache anymore. Run a fresh sync if you need it again.",
+                    body = "Run a fresh sync to reload this day.",
                 )
             }
             return@LazyColumn
@@ -49,7 +49,6 @@ fun DayDetailScreen(
             HeroCard(
                 eyebrow = "Day detail",
                 title = formatDayLabel(insight.day),
-                subtitle = "A clearer read of this date: scores, durations, units, target context, and workouts on one screen.",
                 accent = listOf(Color(0xFF2B6DFF), Color(0xFF19B394)),
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -73,7 +72,6 @@ fun DayDetailScreen(
         item {
             SectionCard(
                 title = "Scores",
-                subtitle = "Scores are separated from raw units so the day reads more clearly.",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailScoreTile(
@@ -104,36 +102,34 @@ fun DayDetailScreen(
         item {
             SectionCard(
                 title = "Derived insights",
-                subtitle = "Useful approximations and baselines computed locally from the synced cache.",
             ) {
                 StatRow("Estimated sleep need", formatDurationHours(insight.sleepNeedEstimateSeconds))
                 StatRow("Sleep debt", formatDurationHours(insight.sleepDebtSeconds))
-                StatRow("Activity goal progress", insight.activityGoalProgress?.let { formatPercent(it) } ?: "Unavailable")
+                StatRow("Activity goal progress", insight.activityGoalProgress?.let { formatPercent(it) } ?: "--")
                 StatRow("Activity goal context", insight.activityGoalLabel())
                 StatRow("HRV vs baseline", formatSignedDelta(insight.hrvDelta, "ms"))
                 StatRow("Resting HR vs baseline", formatSignedDelta(insight.restingHeartRateDelta, "bpm"))
-                StatRow("Recovery share", insight.recoveryShare?.let { formatPercent(it) } ?: "Unavailable")
+                StatRow("Recovery share", insight.recoveryShare?.let { formatPercent(it) } ?: "--")
             }
         }
 
         item {
             SectionCard(
                 title = "Sleep breakdown",
-                subtitle = "All-sessions totals are used where available. Stage and HR details below come from the primary synced sleep session.",
             ) {
                 StatRow("Total sleep", formatDurationSeconds(insight.totalSleepSeconds))
                 StatRow("Nap sleep", formatDurationSeconds(insight.summary.napSleepDuration))
-                StatRow("Sleep sessions counted", insight.summary.sleepSessionCount?.toString() ?: "Unavailable")
+                StatRow("Sleep sessions counted", insight.summary.sleepSessionCount?.toString() ?: "--")
                 StatRow("Bedtime", "${formatTimeOnly(insight.summary.bedtimeStart)} - ${formatTimeOnly(insight.summary.bedtimeEnd)}")
                 StatRow("Time in bed", formatDurationSeconds(insight.summary.timeInBed))
-                StatRow("Sleep efficiency", insight.summary.sleepEfficiency?.let { "$it%" } ?: "Unavailable")
+                StatRow("Sleep efficiency", insight.summary.sleepEfficiency?.let { "$it%" } ?: "--")
                 StatRow("Deep sleep", formatDurationSeconds(insight.summary.deepSleepDuration))
                 StatRow("REM sleep", formatDurationSeconds(insight.summary.remSleepDuration))
                 StatRow("Light sleep", formatDurationSeconds(insight.summary.lightSleepDuration))
                 StatRow("Awake time", formatDurationSeconds(insight.summary.awakeTime))
-                StatRow("Avg HR", insight.summary.averageHeartRate?.let { "${it.toInt()} bpm" } ?: "Unavailable")
-                StatRow("Lowest HR", insight.summary.lowestHeartRate?.let { "$it bpm" } ?: "Unavailable")
-                StatRow("Avg HRV", insight.summary.averageHrv?.let { "$it ms" } ?: "Unavailable")
+                StatRow("Avg HR", insight.summary.averageHeartRate?.let { "${it.toInt()} bpm" } ?: "--")
+                StatRow("Lowest HR", insight.summary.lowestHeartRate?.let { "$it bpm" } ?: "--")
+                StatRow("Avg HRV", insight.summary.averageHrv?.let { "$it ms" } ?: "--")
                 insight.summary.sleepRecommendation?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         text = it,
@@ -147,23 +143,22 @@ fun DayDetailScreen(
         item {
             SectionCard(
                 title = "Activity and recovery",
-                subtitle = "Raw activity load, targets, temperature, and recovery context for the same day.",
             ) {
-                StatRow("Steps", insight.summary.steps?.let { formatCompactNumber(it) } ?: "Unavailable")
-                StatRow("Active calories", insight.summary.activeCalories?.let { "$it kcal" } ?: "Unavailable")
-                StatRow("Total calories", insight.summary.totalCalories?.let { "$it kcal" } ?: "Unavailable")
+                StatRow("Steps", insight.summary.steps?.let { formatCompactNumber(it) } ?: "--")
+                StatRow("Active calories", insight.summary.activeCalories?.let { "$it kcal" } ?: "--")
+                StatRow("Total calories", insight.summary.totalCalories?.let { "$it kcal" } ?: "--")
                 StatRow("Walking distance", formatMeters(insight.summary.equivalentWalkingDistance))
-                StatRow("Target calories", insight.summary.targetCalories?.let { "$it kcal" } ?: "Unavailable")
+                StatRow("Target calories", insight.summary.targetCalories?.let { "$it kcal" } ?: "--")
                 StatRow("Target distance", formatMeters(insight.summary.targetMeters))
                 StatRow("Meters to target", formatMeters(insight.summary.metersToTarget))
                 StatRow("Resting time", formatDurationSeconds(insight.summary.restingTime))
                 StatRow("Sedentary time", formatDurationSeconds(insight.summary.sedentaryTime))
-                StatRow("Stress minutes", insight.summary.stressHigh?.let { "$it min" } ?: "Unavailable")
-                StatRow("Recovery minutes", insight.summary.recoveryHigh?.let { "$it min" } ?: "Unavailable")
+                StatRow("Stress minutes", insight.summary.stressHigh?.let { "$it min" } ?: "--")
+                StatRow("Recovery minutes", insight.summary.recoveryHigh?.let { "$it min" } ?: "--")
                 StatRow("Temp deviation", formatSignedDecimal(insight.summary.temperatureDeviation, "°C"))
                 StatRow("Temp trend", formatSignedDecimal(insight.summary.temperatureTrendDeviation, "°C"))
-                StatRow("Resilience", insight.summary.resilienceLevel ?: "Unavailable")
-                StatRow("Vascular age", insight.summary.vascularAge?.toString() ?: "Unavailable")
+                StatRow("Resilience", insight.summary.resilienceLevel ?: "--")
+                StatRow("Vascular age", insight.summary.vascularAge?.toString() ?: "--")
                 insight.summary.readinessDaySummary?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         text = it,
@@ -177,18 +172,9 @@ fun DayDetailScreen(
         item {
             SectionCard(
                 title = "Workouts",
-                subtitle = if (insight.workouts.isEmpty()) {
-                    "No workout records were synced for this date."
-                } else {
-                    "Workout cards are tied directly to this day instead of being buried in a separate list."
-                },
+                subtitle = if (insight.workouts.isEmpty()) "No workout records were synced for this date." else null,
             ) {
                 if (insight.workouts.isEmpty()) {
-                    Text(
-                        text = "If the desktop snapshot contains workouts for this day, they will appear here automatically after sync.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 } else {
                     insight.workouts.forEach { workout ->
                         WorkoutDetailTile(
@@ -203,18 +189,6 @@ fun DayDetailScreen(
             }
         }
 
-        item {
-            SectionCard(
-                title = "Notes",
-                subtitle = "The mobile app is explicit about approximations rather than implying parity with Oura internals that are not exported.",
-            ) {
-                Text(
-                    text = "Sleep debt is a local approximation based on a 14-day median sleep-need estimate using total synced sleep, including naps or short sessions when present. It requires at least 5 sleep days in the last 14 days.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
     }
 }
 
@@ -286,6 +260,6 @@ private fun DailyInsight.activityGoalLabel(): String {
             "Target $target • $remaining"
         }
 
-        null -> "No synced calorie or distance target"
+        null -> "No target set"
     }
 }

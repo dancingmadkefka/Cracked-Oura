@@ -38,7 +38,7 @@ fun formatDayMonth(day: String?): String {
 }
 
 fun formatDateTimeLabel(value: String?): String {
-    if (value.isNullOrBlank()) return "Unavailable"
+    if (value.isNullOrBlank()) return "--"
     return parseDateTime(value)?.format(prettyDateTimeFormatter) ?: value
 }
 
@@ -48,7 +48,7 @@ fun formatTimeOnly(value: String?): String {
 }
 
 fun formatDurationSeconds(seconds: Int?): String {
-    if (seconds == null || seconds <= 0) return "Unavailable"
+    if (seconds == null || seconds <= 0) return "--"
     val totalMinutes = seconds / 60
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
@@ -56,12 +56,12 @@ fun formatDurationSeconds(seconds: Int?): String {
 }
 
 fun formatDurationHours(seconds: Int?): String {
-    if (seconds == null || seconds <= 0) return "Unavailable"
+    if (seconds == null || seconds <= 0) return "--"
     return String.format(Locale.US, "%.1f h", seconds / 3600f)
 }
 
 fun formatCompactNumber(value: Int?): String {
-    if (value == null) return "Unavailable"
+    if (value == null) return "--"
     return when {
         value >= 10_000 -> String.format(Locale.US, "%.1fk", value / 1000f)
         value >= 1_000 -> String.format(Locale.US, "%.1fk", value / 1000f)
@@ -70,13 +70,13 @@ fun formatCompactNumber(value: Int?): String {
 }
 
 fun formatSignedDelta(value: Int?, unit: String = ""): String {
-    if (value == null) return "No baseline yet"
+    if (value == null) return "--"
     val suffix = unit.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
     return if (value > 0) "+$value$suffix" else "$value$suffix"
 }
 
 fun formatSignedDecimal(value: Float?, unit: String = "", decimals: Int = 1): String {
-    if (value == null) return "Unavailable"
+    if (value == null) return "--"
     val pattern = "%.${decimals}f"
     val formatted = String.format(Locale.US, pattern, value.absoluteValue)
     val suffix = unit.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
@@ -84,12 +84,12 @@ fun formatSignedDecimal(value: Float?, unit: String = "", decimals: Int = 1): St
 }
 
 fun formatPercent(value: Float?, decimals: Int = 0): String {
-    if (value == null) return "Unavailable"
+    if (value == null) return "--"
     return String.format(Locale.US, "%.${decimals}f%%", value * 100f)
 }
 
 fun formatMeters(value: Int?): String {
-    if (value == null) return "Unavailable"
+    if (value == null) return "--"
     return if (value >= 1000) {
         String.format(Locale.US, "%.1f km", value / 1000f)
     } else {
@@ -98,7 +98,7 @@ fun formatMeters(value: Int?): String {
 }
 
 fun formatDateRange(startDay: String?, endDay: String?): String {
-    if (startDay.isNullOrBlank() || endDay.isNullOrBlank()) return "Range unavailable"
+    if (startDay.isNullOrBlank() || endDay.isNullOrBlank()) return "--"
     val start = parseDay(startDay) ?: return "$startDay to $endDay"
     val end = parseDay(endDay) ?: return "$startDay to $endDay"
     return "${start.format(monthDateFormatter)} to ${end.format(monthDateFormatter)}"
