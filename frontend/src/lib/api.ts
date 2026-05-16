@@ -1,8 +1,12 @@
 const BASE_URL = 'http://localhost:8000';
 
 export interface AutomationStatusResponse {
-    status: 'idle' | 'login_needed' | 'otp_needed' | 'logged_in' | 'exporting' | 'ready_to_download' | 'downloading' | 'completed' | 'error';
+    status: string;
     message?: string;
+    logged_in?: boolean;
+    email?: string;
+    last_run?: string | null;
+    next_run?: string | null;
 }
 
 export interface ChatMessage {
@@ -26,13 +30,13 @@ export interface MobileSyncSettings {
 
 export const api = {
     // --- Settings & Automation ---
-    getSettings: async () => {
+    getSettings: async (): Promise<{ daily_sync_time: string; email: string; llm_model: string; llm_host: string; llm_api_key: string }> => {
         const res = await fetch(`${BASE_URL}/api/settings`);
         if (!res.ok) throw new Error('Failed to fetch settings');
         return res.json();
     },
 
-    saveSettings: async (settings: { daily_sync_time: string; email?: string }) => {
+    saveSettings: async (settings: { daily_sync_time: string; email?: string; llm_model?: string; llm_host?: string; llm_api_key?: string }) => {
         const res = await fetch(`${BASE_URL}/api/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -83,11 +87,11 @@ export const api = {
         return data;
     },
 
-    submitOtp: async (otp: string) => {
+    submitOtp: async (otp: string, action: 'test' | 'run' | 'download' = 'test') => {
         const res = await fetch(`${BASE_URL}/api/automation/submit-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ otp })
+            body: JSON.stringify({ otp, action })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'OTP failed');

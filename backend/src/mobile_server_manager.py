@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from .config import config_manager
+from .paths import get_user_data_dir
 
 logger = logging.getLogger("MobileServerManager")
 
@@ -104,7 +105,31 @@ class MobileServerManager:
             )
             self._process = None
 
+    def _kill_stale_process_on_port(self, port: int) -> None:
+        """On Windows, find and kill any process already listening on the target port."""
+        if os.name != "nt":
+            return
+        try:
+            import subprocess as sp
+            result = sp.run(
+                ["cmd", "/c", f"netstat -ano | findstr :{port}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            for line in result.stdout.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 5 and parts[1].endswith(f":{port}") and parts[3] == "LISTENING":
+                    stale_pid = parts[-1]
+                    logger.warning("Port %s is already in use by PID %s. Killing stale process.", port, stale_pid)
+                    sp.run(["taskkill", "/F", "/PID", stale_pid], capture_output=True, check=False)
+        except Exception as exc:
+            logger.warning("Failed to kill stale process on port %s: %s", port, exc)
+
     def _start_locked(self, host: str, port: int) -> None:
+        # Clear any stale process holding our port
+        self._kill_stale_process_on_port(port)
+
         command = self._build_command(host, port)
         env = os.environ.copy()
         env["CRACKED_OURA_DISABLE_MOBILE_AUTOSTART"] = "1"
@@ -115,14 +140,16 @@ class MobileServerManager:
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
         cwd = self._working_directory()
 
-        logger.info("Starting mobile sync server host=%s port=%s command=%s", host, port, command)
+        log_path = os.path.join(get_user_data_dir(), "mobile_server.log")
+        logger.info("Starting mobile sync server host=%s port=%s command=%s log=%s", host, port, command, log_path)
         try:
+            self._log_file = open(log_path, "a", encoding="utf-8")
             self._process = subprocess.Popen(
                 command,
                 cwd=cwd,
                 env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=self._log_file,
+                stderr=subprocess.STDOUT,
                 creationflags=creationflags,
             )
             self._host = host
@@ -154,6 +181,13 @@ class MobileServerManager:
                 logger.warning("Mobile sync server did not stop cleanly; killing pid=%s", process.pid)
                 process.kill()
                 process.wait(timeout=5)
+        
+        if hasattr(self, '_log_file') and self._log_file:
+            try:
+                self._log_file.close()
+            except Exception:
+                pass
+            self._log_file = None
 
     def _build_command(self, host: str, port: int) -> List[str]:
         if getattr(sys, "frozen", False):

@@ -47,12 +47,12 @@ class ChatRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
 
-class OTPRequest(BaseModel):
-    otp: str
-
 class SettingsRequest(BaseModel):
     daily_sync_time: str
     email: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_host: Optional[str] = None
+    llm_api_key: Optional[str] = None
 
 class Dashboard(BaseModel):
     id: str
@@ -102,6 +102,7 @@ async def run_full_sync_task(db_session_factory):
     4. Ingest data into the local SQLite database.
     """
     config_manager.update_status("Processing", message="Starting full sync...")
+    waiting_for_otp = False
     try:
         # Create temp dir for the download
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -110,10 +111,11 @@ async def run_full_sync_task(db_session_factory):
             # This step blocks while waiting for Oura to generate the export
             result = await automator.request_new_export_and_download(temp_dir)
             
-            # Handle OTP requirement
+            # Handle OTP requirement — keep session alive so user can submit code
             if isinstance(result, dict) and result.get("status") == "otp_required":
-                config_manager.update_status("Error", message="OTP required. Please login manually in settings.")
-                logger.warning("Full sync failed: OTP required.")
+                waiting_for_otp = True
+                config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
+                logger.warning("Full sync paused: OTP required. Waiting for user to submit code.")
                 return
 
             zip_path = result
@@ -142,7 +144,8 @@ async def run_full_sync_task(db_session_factory):
         logger.error(f"Full sync task error: {e}")
         config_manager.update_status("Error", message=f"Sync failed: {e}")
     finally:
-        await automator.cleanup()
+        if not waiting_for_otp:
+            await automator.cleanup()
 
 # -----------------------------------------------------------------------------
 # Chat / Advisor Endpoints
@@ -179,15 +182,6 @@ async def start_login(request: LoginRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/api/automation/submit-otp")
-async def submit_otp(request: OTPRequest):
-    """Submits the OTP code to the active Playwright session."""
-    try:
-        result = await automator.submit_otp(request.otp)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.post("/api/automation/request-export")
 async def request_export(background_tasks: BackgroundTasks):
     """
@@ -214,6 +208,15 @@ async def download_export(db: Session = Depends(get_db)):
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             result = await automator.download_existing_export(temp_dir)
+            
+            # Handle OTP requirement — keep session alive and surface to UI
+            if isinstance(result, dict) and result.get("status") == "otp_required":
+                config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
+                raise HTTPException(
+                    status_code=409,
+                    detail="OTP required. Please enter the code below.",
+                )
+            
             zip_path = _coerce_downloaded_zip_path(result)
 
             # Ingest
@@ -246,6 +249,12 @@ async def save_settings(request: SettingsRequest):
         updates = {"schedule_time": request.daily_sync_time}
         if request.email is not None:
              updates["email"] = request.email
+        if request.llm_model is not None:
+             updates["llm_model"] = request.llm_model
+        if request.llm_host is not None:
+             updates["llm_host"] = request.llm_host
+        if request.llm_api_key is not None:
+             updates["llm_api_key"] = request.llm_api_key
              
         config_manager.update_config(**updates)
         return {"message": "Settings saved"}
@@ -259,7 +268,10 @@ async def get_settings():
         config = config_manager.get_config()
         return {
             "daily_sync_time": config.get("schedule_time", "09:00"),
-            "email": config.get("email", "")
+            "email": config.get("email", ""),
+            "llm_model": config.get("llm_model", "llama3.1:latest"),
+            "llm_host": config.get("llm_host", "http://localhost:1234/v1"),
+            "llm_api_key": config.get("llm_api_key", "not-needed"),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

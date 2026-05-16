@@ -26,6 +26,7 @@ class OuraAutomator:
         self.password: Optional[str] = None
         self.base_url = "https://membership.ouraring.com"
         self.export_url = f"{self.base_url}/data-export"
+        self._login_in_progress = False
 
         # Configure Playwright Browser Path
         from .paths import get_user_data_dir
@@ -120,10 +121,18 @@ class OuraAutomator:
 
     async def start_login(self, email: str):
         """Initiates the login process with the provided email."""
+        if self._login_in_progress:
+            logger.warning("Login already in progress — ignoring duplicate request.")
+            return {"status": "otp_required", "message": "Login already in progress. Check your email for the code."}
+        self._login_in_progress = True
         if not self._is_initialized:
             await self.initialize()
         self.email = email
-        return await self.login()
+        try:
+            return await self.login()
+        except Exception:
+            self._login_in_progress = False
+            raise
 
     async def cleanup(self):
         """Closes browser resources and stops Playwright."""
@@ -138,7 +147,9 @@ class OuraAutomator:
 
     async def clear_session(self) -> bool:
         """Clears stored session file and closes browser resources."""
+        self._login_in_progress = False
         await self.cleanup()
+        config_manager.update_config(logged_in=False)
         if os.path.exists(self.storage_state_path):
             os.remove(self.storage_state_path)
             logger.info("Session file removed.")
@@ -235,6 +246,8 @@ class OuraAutomator:
         
         logger.info("Login process completed successfully.")
         await self.save_context()
+        self._login_in_progress = False
+        config_manager.update_config(logged_in=True)
         return {"status": "success", "message": "Login successful"}
 
     async def _click_submit(self):
@@ -263,15 +276,10 @@ class OuraAutomator:
         ]
 
         if await intermediate_btn.is_visible():
-            otp_visible = False
-            for selector in otp_selectors:
-                if await self.page.locator(selector).first.is_visible():
-                    otp_visible = True
-                    break
-            if not otp_visible:
-                logger.info("Found intermediate 'Send Code' button. Clicking...")
-                await intermediate_btn.click()
-                await self.page.wait_for_timeout(3000)
+            # Always click Send Code to ensure Oura actually emails a code
+            logger.info("Found intermediate 'Send Code' button. Clicking...")
+            await intermediate_btn.click()
+            await self.page.wait_for_timeout(3000)
 
         # Check for OTP input visibility
         for selector in otp_selectors:
@@ -347,6 +355,8 @@ class OuraAutomator:
             if self._is_logged_in():
                 logger.info("OTP Accepted. Login successful.")
                 await self.save_context()
+                self._login_in_progress = False
+                config_manager.update_config(logged_in=True)
                 return {"status": "success", "message": "Login successful!"}
 
             invalid_code = False
@@ -387,10 +397,16 @@ class OuraAutomator:
         try:
             # 1. Navigate
             if not await self._navigate_to_export_page():
-                # Check if stuck on Login/OTP
+                # Check if stuck on Login/OTP — submit email so Oura sends the code
                 if "login" in self.page.url or "authn" in self.page.url:
-                     return {"status": "otp_required"}
-                return None
+                    login_res = await self.login()
+                    if login_res and login_res.get("status") == "otp_required":
+                        return {"status": "otp_required"}
+                    # Login succeeded, retry navigation
+                    if not await self._navigate_to_export_page():
+                        return None
+                else:
+                    return None
 
             # 2. Click Request Button (if available)
             if await self._click_request_export_button():
@@ -425,7 +441,16 @@ class OuraAutomator:
 
         try:
             if not await self._navigate_to_export_page():
-                return {"status": "otp_required"}
+                # Check if stuck on Login/OTP — submit email so Oura sends the code
+                if "login" in self.page.url or "authn" in self.page.url:
+                    login_res = await self.login()
+                    if login_res and login_res.get("status") == "otp_required":
+                        return {"status": "otp_required"}
+                    # Login succeeded, retry navigation
+                    if not await self._navigate_to_export_page():
+                        return None
+                else:
+                    return None
 
             return await self._download_file(save_dir)
 
@@ -450,14 +475,10 @@ class OuraAutomator:
                 logger.info("Successfully arrived at data-export page.")
                 return True
             
-            # Handle Login Redirect
+            # Handle Login Redirect — don't auto-login, surface to user
             if "login" in current_url or "authn" in current_url:
-                logger.info("Redirected to login. Logging in...")
-                login_result = await self.login()
-                if login_result and login_result.get("status") == "otp_required":
-                     return False
-                # Retry nav after login
-                await self.page.goto(self.export_url, timeout=30000)
+                logger.warning("Redirected to login — session expired.")
+                return False
             
             # Handle Home Page redirect (sometimes happens on first load)
             elif current_url.rstrip('/') == self.base_url:

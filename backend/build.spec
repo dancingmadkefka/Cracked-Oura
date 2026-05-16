@@ -1,6 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_submodules
+
 block_cipher = None
+
+# Collect all langchain submodules to ensure PyInstaller bundles them
+langchain_hiddenimports = collect_submodules('langchain_community')
+langchain_hiddenimports += collect_submodules('langchain_ollama')
+langchain_hiddenimports += collect_submodules('langchain_openai')
+langchain_hiddenimports += collect_submodules('openai')
+langchain_hiddenimports += collect_submodules('sqlalchemy')
+langchain_hiddenimports += collect_submodules('langchain_core')
 
 a = Analysis(
     ['src/api/main.py'],
@@ -21,7 +31,7 @@ a = Analysis(
         'uvicorn.protocols.websockets.auto',
         'uvicorn.lifespan',
         'uvicorn.lifespan.on',
-    ],
+    ] + langchain_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

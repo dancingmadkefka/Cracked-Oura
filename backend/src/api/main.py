@@ -117,7 +117,7 @@ async def update_automation_config(config: AutomationConfig):
 
 class OTPRequest(BaseModel):
     otp: str
-    action: str = "run" # run, download, test
+    action: str = "test" # test = verify login only; run = resume full sync; download = resume download
 
 @app.post("/api/automation/submit-otp")
 async def submit_otp(request: OTPRequest, background_tasks: BackgroundTasks):
@@ -213,6 +213,7 @@ async def run_download_existing_task():
     Standalone task for downloading existing export.
     """
     logger.info("Starting download existing task...")
+    waiting_for_otp = False
     try:
         cfg = config_manager.get_config()
         # Ensure automator is initialized and configured
@@ -228,7 +229,9 @@ async def run_download_existing_task():
         result = await automator.download_existing_export(save_dir=save_dir)
         
         if isinstance(result, dict) and result.get("status") == "otp_required":
-            config_manager.update_status("Waiting for OTP...")
+            waiting_for_otp = True
+            config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
+            logger.info("Download existing task paused: waiting for OTP.")
             return
 
         file_path = result
@@ -244,7 +247,8 @@ async def run_download_existing_task():
 
     except Exception as e:
         logger.error(f"Download task failed: {e}")
-        await automator.cleanup() # Cleanup on error
+        if not waiting_for_otp:
+            await automator.cleanup() # Cleanup on error
 
 
 @app.post("/api/automation/download-latest")
@@ -266,6 +270,7 @@ async def run_ingestion_task(force=False):
 
     logger.info("Background worker: Starting ingestion task...")
     config_manager.update_status("Starting...")
+    waiting_for_otp = False
     
     try:
         # 1. Initialize
@@ -279,8 +284,9 @@ async def run_ingestion_task(force=False):
         # Check login first
         login_res = await automator.login()
         if login_res and login_res.get("status") == "otp_required":
+             waiting_for_otp = True
              logger.info("Background worker: OTP Required.")
-             config_manager.update_status("Waiting for OTP...")
+             config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
              return
         
         # 2. Run Full Automation (Request -> Wait -> Download)
@@ -294,7 +300,9 @@ async def run_ingestion_task(force=False):
         result = await automator.request_new_export_and_download(save_dir=save_dir)
         
         if isinstance(result, dict) and result.get("status") == "otp_required":
-             config_manager.update_status("Waiting for OTP...")
+             waiting_for_otp = True
+             config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
+             logger.info("Background worker: paused waiting for OTP.")
              return
 
         file_path = result
@@ -315,7 +323,8 @@ async def run_ingestion_task(force=False):
     except Exception as e:
         logger.error(f"Background worker error: {e}")
         config_manager.update_status(f"Error: {str(e)}")
-        await automator.cleanup() # Cleanup on error
+        if not waiting_for_otp:
+            await automator.cleanup() # Cleanup on error
 
 async def process_ingestion(zip_path):
     logger.info(f"Background worker: Downloaded to {zip_path}")

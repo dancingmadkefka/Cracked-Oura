@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Loader2, Download, Copy, Upload, LogOut, RefreshCw, ChevronRight } from "lucide-react";
+import { X, Loader2, Copy, LogOut, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { api, type AutomationStatusResponse, type MobileSyncSettings } from '@/lib/api';
@@ -20,6 +20,7 @@ interface AutomationState {
     lastRun: string | null;
     nextRun: string | null;
     message: string | null;
+    loggedIn: boolean;
 }
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
@@ -30,6 +31,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const [otp, setOtp] = useState('');
 
     const [dailySyncTime, setDailySyncTime] = useState("09:00");
+    const [llmModel, setLlmModel] = useState("llama3.1:latest");
+    const [llmHost, setLlmHost] = useState("http://localhost:1234/v1");
+    const [llmApiKey, setLlmApiKey] = useState("not-needed");
     const [mobileSync, setMobileSync] = useState<MobileSyncSettings | null>(null);
     const [mobileSyncEnabled, setMobileSyncEnabled] = useState(false);
     const [mobileSyncToken, setMobileSyncToken] = useState("");
@@ -48,6 +52,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 lastRun: data.last_run || null,
                 nextRun: data.next_run || null,
                 message: data.message || null,
+                loggedIn: data.logged_in || false,
             });
             if (data.email) setEmail(data.email);
         } catch (err) {
@@ -62,6 +67,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             .then(data => {
                 if (data.daily_sync_time) setDailySyncTime(data.daily_sync_time);
                 if (data.email) setEmail(data.email);
+                if (data.llm_model) setLlmModel(data.llm_model);
+                if (data.llm_host) setLlmHost(data.llm_host);
+                if (data.llm_api_key) setLlmApiKey(data.llm_api_key);
             })
             .catch(err => console.error("Failed to fetch settings", err));
 
@@ -101,9 +109,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 } else if (data.status === 'Idle') {
                     if (pollRef.current) clearInterval(pollRef.current);
                     setLoading(false);
+                    // Full refresh of all status data including mobile sync
+                    fetchStatus();
+                    api.getMobileSyncSettings().then(setMobileSync).catch(err => console.error("Failed to refresh mobile sync", err));
                 } else if (data.status === 'Error') {
                     if (pollRef.current) clearInterval(pollRef.current);
                     setError(data.message || "Sync failed");
+                    setLoading(false);
+                } else if (data.status === 'otp_needed' || data.status === 'Waiting') {
+                    if (pollRef.current) clearInterval(pollRef.current);
                     setLoading(false);
                 }
             } catch (err) {
@@ -130,10 +144,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         if (!email.trim()) return;
         setLoading(true);
         setError(null);
+        // Clear any stale error status so the UI resets cleanly
+        setAutomation(prev => prev ? { ...prev, status: 'Idle', message: null } : prev);
         try {
             await api.saveSettings({ daily_sync_time: dailySyncTime, email });
             const data = await api.startLogin(email);
-            setAutomation(prev => prev ? { ...prev, status: 'otp_needed', email, message: data?.message || null } : { status: 'otp_needed', email, lastRun: null, nextRun: null, message: data?.message || null });
+            setAutomation(prev => prev
+                ? { ...prev, status: 'otp_needed', email, message: data?.message || null }
+                : { status: 'otp_needed', email, lastRun: null, nextRun: null, message: data?.message || null, loggedIn: false }
+            );
         } catch (err: any) {
             setError(err?.message || 'Login failed');
         } finally {
@@ -146,8 +165,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setLoading(true);
         setError(null);
         try {
-            const data = await api.submitOtp(otp);
-            setAutomation(prev => prev ? { ...prev, status: 'logged_in', message: data?.message || null } : null);
+            // If we were waiting for OTP during a sync, resume it automatically
+            const action = automation?.status === 'otp_needed' ? 'run' : 'test';
+            const data = await api.submitOtp(otp, action);
+            setAutomation(prev => prev ? { ...prev, status: 'logged_in', message: data?.message || null, loggedIn: true } : null);
             setOtp('');
             await fetchStatus();
         } catch (err: any) {
@@ -180,7 +201,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setLoading(true);
         try {
             await api.clearSession();
-            setAutomation({ status: 'Idle', email: '', lastRun: null, nextRun: null, message: null });
+            setAutomation({ status: 'Idle', email: '', lastRun: null, nextRun: null, message: null, loggedIn: false });
+            setError(null);
         } catch (err: any) {
             setError(err?.message || 'Failed to log out');
         } finally {
@@ -192,7 +214,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setLoading(true);
         setError(null);
         try {
-            await api.saveSettings({ daily_sync_time: dailySyncTime, email });
+            await api.saveSettings({ daily_sync_time: dailySyncTime, email, llm_model: llmModel, llm_host: llmHost, llm_api_key: llmApiKey });
         } catch (err: any) {
             setError(err?.message || 'Failed to save');
         } finally {
@@ -247,7 +269,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         }
     };
 
-    const isLoggedIn = automation?.lastRun != null;
+    const isLoggedIn = automation?.loggedIn === true;
     const isExporting = automation?.status === 'Processing' || automation?.status === 'Ingesting';
     const isWaitingForOtp = automation?.status === 'Waiting' || automation?.status === 'otp_needed';
     const isError = automation?.status === 'Error';
@@ -292,7 +314,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                         {isLoggedIn && automation?.lastRun && (
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>
-                                    Last sync {formatDistanceToNow(new Date(automation.lastRun), { addSuffix: true })}
+                                    Last sync {formatDistanceToNow(new Date(automation.lastRun.replace(' ', 'T')), { addSuffix: true })}
                                 </span>
                                 {mobileSync?.latest_day && (
                                     <span className="font-medium text-foreground">
@@ -300,6 +322,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                     </span>
                                 )}
                             </div>
+                        )}
+
+                        {/* Reassurance message when logged in */}
+                        {isLoggedIn && !isExporting && !isWaitingForOtp && (
+                            <p className="text-xs text-green-600 bg-green-600/10 rounded-md px-3 py-2">
+                                You're all set! Data syncs automatically every day{automation?.nextRun ? ` at ${new Date(automation.nextRun.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}. Click "Sync now" if you want fresh data immediately.
+                            </p>
                         )}
 
                         {/* Error message */}
@@ -347,6 +376,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                         Submit
                                     </Button>
                                 </div>
+                                <button
+                                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                                    onClick={handleClearSession}
+                                    disabled={loading}
+                                >
+                                    <LogOut className="h-3 w-3" />
+                                    Wrong email? Start over
+                                </button>
                             </div>
                         )}
 
@@ -386,7 +423,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                     {automation?.nextRun && (
                         <p className="text-xs text-muted-foreground">
-                            Next auto-sync: {formatDistanceToNow(new Date(automation.nextRun), { addSuffix: true })}
+                            Next auto-sync: {formatDistanceToNow(new Date(automation.nextRun.replace(' ', 'T')), { addSuffix: true })}
                         </p>
                     )}
 
@@ -418,6 +455,60 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                         <Button onClick={handleSaveSchedule} disabled={loading} variant="outline" size="sm">
                             Save
                         </Button>
+                    </div>
+                </div>
+
+                {/* ─── AI Advisor ─── */}
+                <div className="space-y-3">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Advisor</h3>
+                    <div className="rounded-lg border p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground">
+                            The AI Advisor works with any OpenAI-compatible endpoint — <a href="https://lmstudio.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">LM Studio</a>, <a href="https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">llama.cpp server</a>, local proxies, or cloud APIs.
+                        </p>
+                        <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">API Base URL</Label>
+                            <Input
+                                placeholder="http://localhost:1234/v1"
+                                value={llmHost}
+                                onChange={e => setLlmHost(e.target.value)}
+                                disabled={loading}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Model Name</Label>
+                            <Input
+                                placeholder="llama3.1"
+                                value={llmModel}
+                                onChange={e => setLlmModel(e.target.value)}
+                                disabled={loading}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">API Key (optional)</Label>
+                            <Input
+                                placeholder="not-needed"
+                                value={llmApiKey}
+                                onChange={e => setLlmApiKey(e.target.value)}
+                                disabled={loading}
+                            />
+                        </div>
+                        <Button onClick={handleSaveSchedule} disabled={loading} variant="outline" size="sm">
+                            Save AI Settings
+                        </Button>
+                        <div className="text-xs text-muted-foreground bg-secondary/40 rounded-md p-3 space-y-1">
+                            <p className="font-medium text-foreground">Quick Start — LM Studio:</p>
+                            <ol className="list-decimal list-inside space-y-1">
+                                <li>Download LM Studio from <a href="https://lmstudio.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">lmstudio.ai</a></li>
+                                <li>Load any GGUF model and start the local server</li>
+                                <li>Keep the server running, then click &quot;AI Chat&quot;</li>
+                            </ol>
+                            <p className="mt-2 font-medium text-foreground">Quick Start — llama.cpp:</p>
+                            <ol className="list-decimal list-inside space-y-1">
+                                <li>Run: <code className="bg-background px-1 py-0.5 rounded text-[10px]">./server -m model.gguf</code></li>
+                                <li>Defaults to <code className="bg-background px-1 py-0.5 rounded text-[10px]">http://localhost:8080/v1</code></li>
+                            </ol>
+                            <p className="mt-2 text-[10px] opacity-70">For local servers, leave API Key as &quot;not-needed&quot;. For OpenAI/Anthropic, paste your real key.</p>
+                        </div>
                     </div>
                 </div>
 

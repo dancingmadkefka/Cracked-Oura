@@ -1,6 +1,6 @@
 import os
 import logging
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from .models import Base
 
@@ -38,7 +38,20 @@ except Exception as e:
 
 # Create the SQLAlchemy engine
 # echo=False disables raw SQL logging to keep console output clean
-engine = create_engine(DATABASE_URL, echo=False)
+# Enable WAL mode and longer timeout for concurrent mobile sync access
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False, "timeout": 30.0},
+)
+
+# Enable WAL mode for better concurrent read/write performance
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
 
 # Session factory for creating new database sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

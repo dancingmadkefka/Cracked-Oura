@@ -144,7 +144,7 @@ export function MainLayout({
                                         <span
                                             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))]"
                                             title={syncInfo.lastRun
-                                                ? `Last synced: ${formatDistanceToNow(new Date(syncInfo.lastRun))} ago`
+                                                ? `Last synced: ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
                                                 : "Never synced"}
                                         >
                                             <span className={cn(
@@ -154,7 +154,7 @@ export function MainLayout({
                                                 syncInfo.lastRun ? "bg-green-500" : "bg-gray-500"
                                             )} />
                                             {syncInfo.lastRun
-                                                ? `Synced ${formatDistanceToNow(new Date(syncInfo.lastRun))} ago`
+                                                ? `Synced ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
                                                 : "Not synced"}
                                         </span>
                                     )}

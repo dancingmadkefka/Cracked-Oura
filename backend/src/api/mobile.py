@@ -555,4 +555,8 @@ def mobile_sync(
 ):
     settings = _mobile_settings()
     requested_window = window_days or settings["default_window_days"]
-    return _build_sync_response(db, requested_window)
+    try:
+        return _build_sync_response(db, requested_window)
+    except Exception as exc:
+        logger.exception("Mobile sync failed")
+        raise HTTPException(status_code=500, detail=f"Sync failed: {exc}")

@@ -52,8 +52,17 @@ export function ChatPage({ messages, isLoading, onSend, onClear }: ChatPageProps
                         {messages.length === 0 && (
                             <div className="text-center text-muted-foreground py-20">
                                 <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                <h3 className="text-lg font-medium">No messages yet</h3>
-                                <p className="mb-6">Start a conversation to analyze your data.</p>
+                                <h3 className="text-lg font-medium">AI Data Analyst</h3>
+                                <p className="mb-2">Ask natural-language questions about your Oura data.</p>
+                                <div className="mb-6 text-xs bg-muted/50 rounded-lg p-3 max-w-lg mx-auto text-left">
+                                    <p className="font-medium text-foreground mb-1">Before you start:</p>
+                                    <ol className="list-decimal list-inside space-y-1">
+                                        <li>Start an OpenAI-compatible server (LM Studio, llama.cpp, etc.)</li>
+                                        <li>Default URL is <code className="bg-background px-1 py-0.5 rounded">http://localhost:1234/v1</code> — change it in Settings if needed</li>
+                                        <li>Click &quot;AI Chat&quot; and ask away</li>
+                                    </ol>
+                                    <p className="mt-2">You can change the model and endpoint in Settings → AI Advisor.</p>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl mx-auto text-sm">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-w-4xl mx-auto text-xs">
                                         {[
