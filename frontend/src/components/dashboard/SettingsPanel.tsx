@@ -276,24 +276,24 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const isBusy = loading || isExporting;
 
     return (
-        <div className="w-[400px] border-l border-white/8 bg-[linear-gradient(180deg,rgba(14,16,22,0.98),rgba(10,12,18,0.96))] flex flex-col h-full">
+        <div className="w-[400px] border-l border-white/[0.06] bg-[#0a0a0c] flex flex-col h-full">
             {/* Header */}
-            <div className="p-5 border-b border-white/8 flex items-center justify-between">
+            <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
                 <div>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">Configuration</p>
-                    <h2 className="text-lg font-semibold font-['Space_Grotesk',sans-serif] text-white mt-0.5">Settings</h2>
+                    <p className="text-[10px] uppercase tracking-widest text-white/30">Configuration</p>
+                    <h2 className="text-lg font-semibold font-['Space_Grotesk',sans-serif] text-white/90 mt-0.5">Settings</h2>
                 </div>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-xl text-white/50 hover:text-white hover:bg-white/8">
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06]">
                     <X className="h-4 w-4" />
                 </Button>
             </div>
 
-            <div className="flex-1 p-5 space-y-6 overflow-y-auto">
+            <div className="flex-1 p-4 space-y-5 overflow-y-auto">
                 {/* ─── Connection ─── */}
                 <div className="space-y-3">
-                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Connection</h3>
+                    <h3 className="text-[10px] font-medium text-white/30 uppercase tracking-widest">Connection</h3>
 
-                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-3">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
                         {/* Status line */}
                         <div className="flex items-center gap-2">
                             <div className={cn(
