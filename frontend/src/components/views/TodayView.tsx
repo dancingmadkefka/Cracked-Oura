@@ -38,23 +38,26 @@ export function TodayView({ onNavigate }: TodayViewProps) {
       </div>
 
       {/* Score Rings */}
-      <div className="flex items-center justify-center gap-8 py-4">
+      <div className="flex items-center justify-center gap-6 md:gap-8 py-4">
         <ScoreRing
           score={summary.scores.sleep}
           label="Sleep"
           color="#60a5fa"
+          size={100}
           onClick={() => onNavigate('sleep')}
         />
         <ScoreRing
           score={summary.scores.readiness}
           label="Readiness"
           color="#34d399"
+          size={100}
           onClick={() => onNavigate('readiness')}
         />
         <ScoreRing
           score={summary.scores.activity}
           label="Activity"
           color="#f59e0b"
+          size={100}
           onClick={() => onNavigate('activity')}
         />
       </div>
