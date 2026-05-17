@@ -1,13 +1,7 @@
 import { DashboardProvider, useDashboard } from "@/contexts/DashboardContext";
-import { MainLayout } from "@/components/layout/MainLayout";
-import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
-import { Button } from "@/components/ui/button";
-import { Edit2, Check } from "lucide-react";
-import { SettingsPanel } from "@/components/dashboard/SettingsPanel";
-import { WidgetEditorPanel } from "@/components/dashboard/WidgetEditorPanel";
-import { ChatPanel } from "@/components/dashboard/ChatPanel";
+import { AppShell } from "@/components/layout/AppShell";
 import { useChat } from "@/hooks/useChat";
-import { ChatPage } from "@/components/dashboard/ChatPage";
+import type { AppView } from "@/components/layout/HealthSidebar";
 
 function DashboardApp() {
   const {
@@ -19,9 +13,7 @@ function DashboardApp() {
     renameDashboard,
     widgets,
     layout,
-    updateActiveDashboard,
     isEditing,
-    setIsEditing,
     activePanel,
     setActivePanel,
     activeView,
@@ -35,127 +27,52 @@ function DashboardApp() {
     selectedDate,
     setSelectedDate,
     data,
-    isDataLoading,
-    connectionStatus,
     syncInfo,
-    retryConnection
   } = useDashboard();
 
-  // Chat State
   const { messages, isLoading, sendMessage, clearHistory } = useChat();
 
-  const handleLayoutChange = (newLayout: any[]) => {
-    updateActiveDashboard({ layout: newLayout });
-  };
-
-  const renderRightPanel = () => {
-    if (activePanel === 'editor') {
-      return (
-        <WidgetEditorPanel
-          onClose={cancelEditingWidget}
-          onSave={saveEditingWidget}
-          onChange={updateEditingWidget}
-          widget={editingWidget}
-        />
-      );
-    }
-    if (activePanel === 'chat') {
-      return (
-        <ChatPanel
-          onClose={() => setActivePanel('none')}
-          messages={messages}
-          isLoading={isLoading}
-          onSend={sendMessage}
-        />
-      );
-    }
-    if (activePanel === 'settings') {
-      return (
-        <SettingsPanel
-          onClose={() => setActivePanel('none')}
-        />
-      );
-    }
-    return null;
-  };
+  const syncStatus = syncInfo ? { status: syncInfo.status, lastRun: syncInfo.lastRun } : null;
 
   return (
-    <MainLayout
-      data={data}
-      isDataLoading={isDataLoading}
-      connectionStatus={connectionStatus}
-      syncInfo={syncInfo}
-      onRetryConnection={retryConnection}
-      rightPanel={renderRightPanel()}
-      onChatToggle={() => setActivePanel(activePanel === 'chat' ? 'none' : 'chat')}
-      isChatOpen={activePanel === 'chat'}
+    <AppShell
+      activeView={activeView}
+      onViewChange={(view: AppView) => setActiveView(view)}
       selectedDate={selectedDate}
-      onDateChange={(date) => date && setSelectedDate(date)}
-      onSettingsClick={() => setActivePanel(activePanel === 'settings' ? 'none' : 'settings')}
+      onDateChange={(date: Date) => setSelectedDate(date)}
+      syncStatus={syncStatus}
 
-      // Dashboard Props
       dashboards={dashboards}
       activeDashboardId={activeDashboardId}
-      onDashboardSelect={(id) => {
+      onDashboardSelect={(id: string) => {
         setActiveDashboardId(id);
-        setActiveView('dashboard');
+        setActiveView('dashboards');
       }}
       onDashboardAdd={addDashboard}
       onDashboardDelete={deleteDashboard}
       onDashboardRename={renameDashboard}
 
-      // Navigation
-      activeView={activeView}
-      onChatPageSelect={() => setActiveView('chat-page')}
+      widgets={widgets}
+      layout={layout}
+      isEditing={isEditing}
+      startEditingWidget={() => startEditingWidget()}
+      deleteWidget={deleteWidget}
+      updateEditingWidget={updateEditingWidget}
+      editingWidget={editingWidget}
+      saveEditingWidget={saveEditingWidget}
+      cancelEditingWidget={cancelEditingWidget}
 
-      headerActions={
-        activeView === 'dashboard' ? (
-          <>
-            {isEditing && (
-              <Button onClick={() => startEditingWidget()} variant="secondary" size="sm">
-                Add Widget
-              </Button>
-            )}
-            <Button
-              variant={isEditing ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                if (isEditing) {
-                  if (activePanel === 'editor') setActivePanel('none');
-                }
-                setIsEditing(!isEditing);
-              }}
-              className="gap-2"
-            >
-              {isEditing ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
-              {isEditing ? "Done Editing" : "Edit Layout"}
-            </Button>
-          </>
-        ) : null
-      }
-    >
+      activePanel={activePanel}
+      setActivePanel={(p) => setActivePanel(p as 'none' | 'settings' | 'editor')}
 
-      {activeView === 'dashboard' ? (
-        <DashboardGrid
-          widgets={widgets}
-          layout={layout}
-          isEditing={isEditing}
-          onLayoutChange={handleLayoutChange}
-          onEditWidget={startEditingWidget}
-          onDeleteWidget={deleteWidget}
-          onWidgetChange={updateEditingWidget}
-          data={data}
-          selectedDate={selectedDate}
-        />
-      ) : (
-        <ChatPage
-          messages={messages}
-          isLoading={isLoading}
-          onSend={sendMessage}
-          onClear={clearHistory}
-        />
-      )}
-    </MainLayout>
+      messages={messages}
+      isLoading={isLoading}
+      sendMessage={sendMessage}
+      clearHistory={clearHistory}
+      onNavigateToAi={() => setActiveView('ai')}
+
+      data={data}
+    />
   );
 }
 

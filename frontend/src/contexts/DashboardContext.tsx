@@ -13,8 +13,9 @@ const EMPTY_DASHBOARD: Dashboard = {
     layout: []
 };
 
+import type { AppView } from '@/components/layout/HealthSidebar';
+
 type PanelType = 'none' | 'chat' | 'editor' | 'settings';
-type ViewType = 'dashboard' | 'chat-page';
 
 interface DashboardContextType {
     // Dashboard State
@@ -36,8 +37,8 @@ interface DashboardContextType {
     setIsEditing: (isEditing: boolean) => void;
     activePanel: PanelType;
     setActivePanel: (panel: PanelType) => void;
-    activeView: ViewType;
-    setActiveView: (view: ViewType) => void;
+    activeView: AppView;
+    setActiveView: (view: AppView) => void;
 
     // Widget Editing
     editingWidget: WidgetInstance | undefined;
@@ -66,7 +67,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
     const [isEditing, setIsEditing] = useState(false);
     const [activePanel, setActivePanel] = useState<PanelType>('none');
-    const [activeView, setActiveView] = useState<ViewType>('dashboard');
+    const [activeView, setActiveView] = useState<AppView>('today');
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
     // Dashboards
@@ -126,7 +127,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const newDashboards = [...dashboards, newDashboard];
         setDashboards(newDashboards);
         setActiveDashboardId(newId);
-        setActiveView('dashboard');
+        setActiveView('dashboards');
         saveDashboards(newDashboards, newId);
     };
 
