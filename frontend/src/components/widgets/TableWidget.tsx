@@ -1,6 +1,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { TableIcon } from "lucide-react";
 
 interface TableWidgetProps {
     data: any[];
@@ -27,8 +28,14 @@ export function TableWidget({ data, dataKeys, selectedDate }: TableWidgetProps) 
 
     if (!selectedRow) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4 text-center">
-                <span className="text-sm font-medium">No data for {selectedDate || "selected date"}</span>
+            <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-6">
+                <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center">
+                    <TableIcon className="h-5 w-5 text-white/30" />
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-white/60">No data available</p>
+                    <p className="text-xs text-white/30 mt-1">{selectedDate || "Select a date to view metrics"}</p>
+                </div>
             </div>
         );
     }
@@ -131,13 +138,16 @@ export function TableWidget({ data, dataKeys, selectedDate }: TableWidgetProps) 
                         return (
                             <div
                                 key={key}
-                                className="flex items-center justify-between py-2 px-2 hover:bg-white/5 rounded transition-colors group"
+                                className={cn(
+                                    "flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors group",
+                                    "hover:bg-white/[0.04]"
+                                )}
                             >
-                                <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                                <span className="text-xs font-medium text-white/45 group-hover:text-white/65 transition-colors">
                                     {label}
                                 </span>
                                 <span className={cn(
-                                    "text-sm font-semibold",
+                                    "text-sm font-semibold text-white/90 font-['Space_Grotesk',sans-serif]",
                                     typeof rawVal === 'number' && "tabular-nums"
                                 )}>
                                     {displayVal}

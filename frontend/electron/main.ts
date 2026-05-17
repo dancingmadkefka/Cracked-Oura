@@ -80,7 +80,7 @@ function createWindow() {
         title: 'Cracked Oura',
     });
 
-    const devUrl = 'http://localhost:5173';
+    const devUrl = 'http://localhost:5188';
     const prodPath = path.join(__dirname, '../dist/index.html');
 
     if (isDev) {

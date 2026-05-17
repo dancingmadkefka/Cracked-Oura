@@ -75,7 +75,7 @@ function createWindow() {
         show: false, // Don't show until ready
         title: 'Cracked Oura',
     });
-    const devUrl = 'http://localhost:5173';
+    const devUrl = 'http://localhost:5188';
     const prodPath = path_1.default.join(__dirname, '../dist/index.html');
     if (isDev) {
         logToDesktop(`Loading DEV URL: ${devUrl}`);

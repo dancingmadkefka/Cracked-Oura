@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { api } from "@/lib/api";
 
@@ -12,59 +12,63 @@ export function useMultiOuraQuery(paths: string[], startDate?: string, endDate?:
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Stable key derived from paths content — avoids JSON.stringify in dep array
+    const pathsKey = useMemo(() => paths.slice().sort().join('|'), [paths]);
+
     useEffect(() => {
-        if (!paths || paths.length === 0) {
+        if (!paths.length) {
             setData([]);
             return;
         }
+
+        let cancelled = false;
 
         const fetchData = async () => {
             setLoading(true);
             setError(null);
             try {
-
-                // Fetch all paths in parallel
-                const promises = paths.map(async (path) => {
-                    const data = await api.getQuery(path, startDate, endDate);
-                    return { path, data: data as QueryResult[] };
-                });
-
-                const results = await Promise.all(promises);
-
-                // Merge data by date
-                const mergedMap = new Map<string, any>();
-
-                results.forEach(({ path, data }) => {
-                    data.forEach(item => {
-                        const dateKey = item.date;
-                        if (!mergedMap.has(dateKey)) {
-                            mergedMap.set(dateKey, {
-                                date: dateKey,
-                                timestamp: dateKey // Ensure timestamp exists for charts
-                            });
-                        }
-                        const entry = mergedMap.get(dateKey);
-
-                        entry[path] = item.value;
-                    });
-                });
-
-                // Convert map to array and sort by date
-                const mergedArray = Array.from(mergedMap.values()).sort((a, b) =>
-                    new Date(a.date).getTime() - new Date(b.date).getTime()
+                const results = await Promise.all(
+                    paths.map(async (path) => ({
+                        path,
+                        data: (await api.getQuery(path, startDate, endDate)) as QueryResult[],
+                    }))
                 );
 
-                setData(mergedArray);
+                if (cancelled) return;
+
+                // Merge all series by date
+                const merged = new Map<string, any>();
+
+                for (const { path, data } of results) {
+                    for (const item of data) {
+                        const key = item.date;
+                        if (!merged.has(key)) {
+                            merged.set(key, { date: key, timestamp: key });
+                        }
+                        merged.get(key)![path] = item.value;
+                    }
+                }
+
+                const sorted = Array.from(merged.values()).sort(
+                    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+                );
+
+                setData(sorted);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
-                console.error("Multi Query Error:", err);
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : 'Unknown error');
+                    console.error("Multi Query Error:", err);
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         fetchData();
-    }, [JSON.stringify(paths), startDate, endDate]);
+
+        return () => { cancelled = true; };
+    }, [pathsKey, startDate, endDate]);
 
     return { data, loading, error };
 }
+

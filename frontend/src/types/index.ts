@@ -5,7 +5,7 @@ export interface WidgetConfig {
     dataKey?: string;
     dataKeys?: string[];
     dateRange?: {
-        type: 'all' | 'custom' | 'to_today' | 'last_30' | 'last_90' | 'selected_day' | 'relative';
+        type: 'all' | 'custom' | 'to_today' | 'last_30' | 'last_90' | 'selected_day' | 'relative' | 'default';
         startDate?: string;
         endDate?: string;
         value?: number;
@@ -24,20 +24,10 @@ export interface WidgetInstance {
     config: WidgetConfig;
 }
 
-export interface DashboardRow {
-    id: string;
-    widgets: WidgetInstance[];
-}
-
-export interface DashboardConfig {
-    id: string;
-    title: string;
-    rows: DashboardRow[];
-}
-
 export interface Dashboard {
     id: string;
     name: string;
     widgets: WidgetInstance[];
     layout: any[];
 }
+

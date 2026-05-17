@@ -1,58 +1,46 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Dashboard } from '../types';
-
 import { api } from "@/lib/api";
 
-// ...
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 1000;
 
 export const useDashboardPersistence = () => {
     const [savedDashboards, setSavedDashboards] = useState<Dashboard[] | null>(null);
     const [savedActiveDashboardId, setSavedActiveDashboardId] = useState<string | null>(null);
 
-    // Load dashboards from server with retry logic
     useEffect(() => {
-        let attempts = 0;
-        const maxAttempts = 10;
+        let attempt = 0;
 
-        const loadConfig = () => {
+        const load = () => {
             api.getLayout()
                 .then(data => {
                     if (data.dashboards && Array.isArray(data.dashboards)) {
                         setSavedDashboards(data.dashboards);
                         setSavedActiveDashboardId(data.activeDashboardId || data.dashboards[0]?.id);
-                    } else if (data.widgets && data.layout) {
-                        // Migration
-                        const defaultDashboard: Dashboard = {
-                            id: 'default',
-                            name: 'Daily Overview',
-                            widgets: data.widgets,
-                            layout: data.layout
-                        };
-                        setSavedDashboards([defaultDashboard]);
-                        setSavedActiveDashboardId('default');
                     }
                 })
                 .catch(() => {
-                    attempts++;
-                    if (attempts < maxAttempts) {
-                        setTimeout(loadConfig, 1000); // Retry after 1s
+                    if (++attempt < MAX_RETRIES) {
+                        setTimeout(load, RETRY_DELAY * attempt);
                     } else {
-                        console.error("Gave up loading dashboard config after multiple attempts.");
+                        console.error("Failed to load dashboard config after retries.");
                     }
                 });
         };
 
-        loadConfig();
+        load();
     }, []);
 
     const saveDashboards = useCallback((dashboards: Dashboard[], activeDashboardId: string) => {
-        api.saveLayout({ dashboards, activeDashboardId })
-            .catch(err => console.error("Error saving dashboard config:", err));
-
-        // Optimistic update
+        // Optimistic local update
         setSavedDashboards(dashboards);
         setSavedActiveDashboardId(activeDashboardId);
+
+        api.saveLayout({ dashboards, activeDashboardId })
+            .catch(err => console.error("Error saving dashboard config:", err));
     }, []);
 
     return { savedDashboards, savedActiveDashboardId, saveDashboards };
 };
+

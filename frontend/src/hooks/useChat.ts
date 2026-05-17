@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 
 export interface Message {
@@ -12,6 +12,12 @@ const STORAGE_KEY = 'oura_chat_history';
 export function useChat() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const messagesRef = useRef(messages);
+
+    // Keep ref in sync so sendMessage always sees latest messages
+    useEffect(() => {
+        messagesRef.current = messages;
+    }, [messages]);
 
     // Load from local storage on mount
     useEffect(() => {
@@ -19,13 +25,13 @@ export function useChat() {
         if (saved) {
             try {
                 setMessages(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse chat history", e);
+            } catch {
+                localStorage.removeItem(STORAGE_KEY);
             }
         }
     }, []);
 
-    // Save to local storage whenever messages change
+    // Persist to localStorage
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     }, [messages]);
@@ -38,31 +44,30 @@ export function useChat() {
         setIsLoading(true);
 
         try {
-            const data = await api.sendChatMessage(content, messages);
+            // Use ref to get the latest messages, avoiding stale closure
+            const currentHistory = messagesRef.current;
+            const data = await api.sendChatMessage(content, currentHistory);
 
-            const assistantMessage: Message = {
+            setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: data.response,
-                thoughts: data.thoughts
-            };
-            setMessages(prev => [...prev, assistantMessage]);
+                thoughts: data.thoughts,
+            }]);
         } catch (error) {
             console.error("Chat error:", error);
-            setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error processing your request." }]);
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: "Sorry, I encountered an error processing your request.",
+            }]);
         } finally {
             setIsLoading(false);
         }
-    }, [messages, isLoading]);
+    }, [isLoading]);
 
     const clearHistory = useCallback(() => {
         setMessages([]);
         localStorage.removeItem(STORAGE_KEY);
     }, []);
 
-    return {
-        messages,
-        isLoading,
-        sendMessage,
-        clearHistory
-    };
+    return { messages, isLoading, sendMessage, clearHistory };
 }

@@ -70,11 +70,8 @@ export const WidgetRegistry = ({ widget, data, date, onUpdate }: WidgetRegistryP
         case 'bar':
             let barData = resolveData(widget.config.dataKey || '') || [];
 
-            // If data is an object (raw contributors), format it for Bar Chart (Static)
-            // BUT check if it's actually an intraday object (has 'items' array) - if so, let SmartTrendWidget handle it
-            const isIntradayObject = barData && typeof barData === 'object' && Array.isArray((barData as any).items);
-
-            if (barData && !Array.isArray(barData) && typeof barData === 'object' && !isIntradayObject) {
+            // Static bar chart from object data (e.g., contributor scores)
+            if (barData && !Array.isArray(barData) && typeof barData === 'object' && !barData.items) {
                 barData = Object.entries(barData).map(([key, value]) => ({
                     name: key.replace(/_/g, ' '),
                     value
@@ -102,7 +99,6 @@ export const WidgetRegistry = ({ widget, data, date, onUpdate }: WidgetRegistryP
         case 'radar':
             let radarData = resolveData(widget.config.dataKey || '') || [];
 
-            // If data is an object (raw contributors), format it for Radar Chart
             if (radarData && !Array.isArray(radarData) && typeof radarData === 'object') {
                 radarData = Object.entries(radarData).map(([key, value]) => ({
                     subject: key.replace(/_/g, ' '),
@@ -120,8 +116,6 @@ export const WidgetRegistry = ({ widget, data, date, onUpdate }: WidgetRegistryP
                 />
             );
         case 'json':
-            // If root is selected, use the date to fetch full dump
-            // Otherwise use the resolved data
             const isRoot = !widget.config.dataKey || widget.config.dataKey === 'root';
             const jsonData = resolveData(widget.config.dataKey || 'root');
 

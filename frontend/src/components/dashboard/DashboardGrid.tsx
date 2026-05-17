@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import RGL, { WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
@@ -7,13 +7,10 @@ import { WidgetCard } from './WidgetCard';
 import { WidgetRegistry } from '../WidgetRegistry';
 import type { WidgetInstance } from '@/types';
 import { cn, isIntradayKey } from '@/lib/utils';
-
 import { DateRangeSelector } from './DateRangeSelector';
-
 import { ErrorBoundary } from '../ErrorBoundary';
 
 const GridLayout = WidthProvider(RGL);
-
 
 interface DashboardGridProps {
     widgets: WidgetInstance[];
@@ -23,7 +20,6 @@ interface DashboardGridProps {
     onEditWidget?: (widget: WidgetInstance) => void;
     onWidgetChange?: (widget: WidgetInstance) => void;
     onDeleteWidget?: (widgetId: string) => void;
-
     data?: any;
     selectedDate: Date;
 }
@@ -39,9 +35,40 @@ export function DashboardGrid({
     data,
     selectedDate
 }: DashboardGridProps) {
-    // Fix for RGL mounting issue
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    // Shared widget renderer — eliminates the duplication between edit and view modes
+    const renderWidget = useCallback((widget: WidgetInstance) => {
+        const supportsDateRange = widget.type === 'trend' || widget.type === 'bar';
+        const showDateSelector = (!!widget.config.dateRange || supportsDateRange) && widget.type !== 'table';
+
+        return (
+            <WidgetCard
+                title={widget.title}
+                isEditing={isEditing}
+                onEdit={() => onEditWidget?.(widget)}
+                onDelete={() => onDeleteWidget?.(widget.id)}
+                className="h-full"
+                headerContent={showDateSelector && (
+                    <DateRangeSelector
+                        widget={widget}
+                        onUpdate={(updates) => onWidgetChange?.({ ...widget, ...updates })}
+                        selectedDate={selectedDate}
+                        isLocked={isIntradayKey(widget.config.dataKey || widget.config.dataKeys?.[0] || '')}
+                    />
+                )}
+            >
+                <div className="h-full pt-2">
+                    <ErrorBoundary>
+                        <WidgetRegistry widget={widget} data={data} date={dateStr} />
+                    </ErrorBoundary>
+                </div>
+            </WidgetCard>
+        );
+    }, [isEditing, onEditWidget, onDeleteWidget, onWidgetChange, selectedDate, data, dateStr]);
 
     if (!mounted) return null;
 
@@ -65,106 +92,56 @@ export function DashboardGrid({
     }
 
     return (
-        <div className={cn("w-full rounded-[30px] border border-white/8 bg-black/10 shadow-[0_24px_80px_rgba(0,0,0,0.16)]", isEditing && "border-dashed border-white/20 bg-white/5")}>
+        <div className={cn(
+            "w-full rounded-[30px] border border-white/8 bg-black/10 shadow-[0_24px_80px_rgba(0,0,0,0.16)]",
+            isEditing && "border-dashed border-white/20 bg-white/5"
+        )}>
             {isEditing ? (
                 <GridLayout
                     className="layout"
                     layout={layout}
                     cols={12}
                     rowHeight={60}
-                    isDraggable={isEditing}
-                    isResizable={isEditing}
+                    isDraggable
+                    isResizable
                     onLayoutChange={onLayoutChange as any}
                     margin={[16, 16]}
                     containerPadding={[16, 16]}
                     draggableHandle=".drag-handle"
                 >
                     {widgets.map((widget) => {
-                        const layoutItem = layout.find(l => l.i === widget.id);
-                        if (!layoutItem) return null;
-                        // This ensures the button is always visible for charts that support it, INCLUDING intraday ones (so user can pick "Selected Day")
-                        const supportsDateRange = widget.type === 'trend' || widget.type === 'bar';
-                        const showDateSelector = (!!widget.config.dateRange || supportsDateRange) && widget.type !== 'table';
-
+                        if (!layout.find(l => l.i === widget.id)) return null;
                         return (
-                            <div key={widget.id} className="relative group">
-                                <WidgetCard
-                                    title={widget.title}
-                                    subtitle={undefined}
-                                    isEditing={isEditing}
-                                    onEdit={() => onEditWidget?.(widget)}
-                                    onDelete={() => onDeleteWidget?.(widget.id)}
-                                    className="h-full"
-                                    headerContent={showDateSelector && (
-                                        <DateRangeSelector
-                                            widget={widget}
-                                            onUpdate={(updates) => onWidgetChange?.({ ...widget, ...updates })}
-                                            selectedDate={selectedDate}
-                                            isLocked={isIntradayKey(widget.config.dataKey || widget.config.dataKeys?.[0] || '')}
-                                        />
-                                    )}
-                                >
-                                    <div className="h-full pt-2">
-                                        <ErrorBoundary>
-                                            <WidgetRegistry widget={widget} data={data} date={format(selectedDate, 'yyyy-MM-dd')} />
-                                        </ErrorBoundary>
-                                    </div>
-                                </WidgetCard>
+                            <div key={widget.id} className="relative group widget-card">
+                                {renderWidget(widget)}
                             </div>
                         );
                     })}
-                </GridLayout >
+                </GridLayout>
             ) : (
                 <div
                     className="grid grid-cols-12 gap-4 p-4"
-                    style={{
-                        gridAutoRows: '60px'
-                    }}
+                    style={{ gridAutoRows: '60px' }}
                 >
                     {widgets.map((widget) => {
                         const layoutItem = layout.find(l => l.i === widget.id);
                         if (!layoutItem) return null;
-                        // This ensures the button is always visible for charts that support it, INCLUDING intraday ones (so user can pick "Selected Day")
-                        const supportsDateRange = widget.type === 'trend' || widget.type === 'bar';
-                        const showDateSelector = (!!widget.config.dateRange || supportsDateRange) && widget.type !== 'table';
-
                         return (
                             <div
                                 key={widget.id}
-                                className="relative group"
+                                className="relative group widget-card"
                                 style={{
                                     gridColumn: `${(layoutItem.x || 0) + 1} / span ${layoutItem.w || 1}`,
-                                    gridRow: `${(layoutItem.y || 0) + 1} / span ${layoutItem.h || 1}`
+                                    gridRow: `${(layoutItem.y || 0) + 1} / span ${layoutItem.h || 1}`,
                                 }}
                             >
-                                <WidgetCard
-                                    title={widget.title}
-                                    subtitle={undefined}
-                                    isEditing={isEditing}
-                                    onEdit={() => onEditWidget?.(widget)}
-                                    onDelete={() => onDeleteWidget?.(widget.id)}
-                                    className="h-full"
-                                    headerContent={showDateSelector && (
-                                        <DateRangeSelector
-                                            widget={widget}
-                                            onUpdate={(updates) => onWidgetChange?.({ ...widget, ...updates })}
-                                            selectedDate={selectedDate}
-                                            isLocked={isIntradayKey(widget.config.dataKey || widget.config.dataKeys?.[0] || '')}
-                                        />
-                                    )}
-                                >
-                                    <div className="h-full pt-2">
-                                        <ErrorBoundary>
-                                            <WidgetRegistry widget={widget} data={data} date={format(selectedDate, 'yyyy-MM-dd')} />
-                                        </ErrorBoundary>
-                                    </div>
-                                </WidgetCard>
+                                {renderWidget(widget)}
                             </div>
                         );
                     })}
-                </div >
-            )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     );
 }
+

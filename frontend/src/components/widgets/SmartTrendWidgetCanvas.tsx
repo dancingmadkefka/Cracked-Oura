@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useMultiOuraQuery } from '@/hooks/useMultiOuraQuery';
 import { TrendChartCanvas } from './TrendChartCanvas';
 import { BarChartCanvas } from './BarChartCanvas';
@@ -96,26 +96,20 @@ export function SmartTrendWidgetCanvas({ widget, date, chartType = 'area' }: Sma
 
     const { data, loading, error } = useMultiOuraQuery(keysToFetch, startDate, endDate);
 
-    // Intraday Logic (Simplified for Canvas Test)
-    const [selectedDayIndex] = useState<number | null>(null);
-
     const processedData = useMemo(() => {
         if (keysToFetch.length === 0) return { data: [], isIntraday: false };
 
         const primaryKey = keysToFetch[0];
-        // Heuristic: If we are plotting sleep (hypnogram or detailed sleep), we want the chart
-        // to only show the "in-bed" period, not the full 24h day with empty space.
-        // Passing undefined for start/end lets normalizeTimeSeriesData use the data's own timestamps.
         const isSleepDetailed = (primaryKey.includes('sleep') || primaryKey.includes('hypnogram')) && isIntradayKey(primaryKey);
 
         return normalizeTimeSeriesData(
             data,
             primaryKey,
-            selectedDayIndex,
+            null,
             isSleepDetailed ? undefined : startDate,
             isSleepDetailed ? undefined : endDate
         );
-    }, [data, selectedDayIndex, keysToFetch, startDate, endDate]);
+    }, [data, keysToFetch, startDate, endDate]);
 
     const aggregatedData = useMemo(() => {
         if (!processedData.data.length) return processedData;

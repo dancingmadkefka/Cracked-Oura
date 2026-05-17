@@ -9,12 +9,7 @@ import { Doughnut } from 'react-chartjs-2';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 
-// Register ChartJS components
-ChartJS.register(
-    ArcElement,
-    Tooltip,
-    Legend
-);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface ScoreGaugeCanvasProps {
     score: number;
@@ -27,45 +22,36 @@ export function ScoreGaugeCanvas({ score, title, color, className }: ScoreGaugeC
     const { theme } = useTheme();
     const isDark = theme === 'dark';
 
-    // Determine color based on score if not provided
     const getScoreColor = (s: number) => {
-        if (s >= 85) return "#4ade80"; // green-400
-        if (s >= 70) return "#facc15"; // yellow-400
-        return "#f87171"; // red-400
+        if (s >= 85) return "#4ade80";
+        if (s >= 70) return "#facc15";
+        return "#f87171";
     };
 
     const finalColor = color || getScoreColor(score);
-    const backgroundColor = isDark ? '#374151' : '#e5e7eb'; // Track color
+    const trackColor = isDark ? '#374151' : '#e5e7eb';
 
     const chartData = {
         labels: ['Score', 'Remaining'],
-        datasets: [
-            {
-                data: [score, 100 - score],
-                backgroundColor: [finalColor, backgroundColor],
-                borderWidth: 0,
-                borderRadius: 20, // Rounded ends
-                cutout: '85%', // Thickness of the ring
-            },
-        ],
+        datasets: [{
+            data: [score, 100 - score],
+            backgroundColor: [finalColor, trackColor],
+            borderWidth: 0,
+            borderRadius: 20,
+            cutout: '85%',
+        }],
     };
 
     const options: ChartOptions<'doughnut'> = {
         responsive: true,
         maintainAspectRatio: false,
-        animation: {
-            duration: 0 // Instant resize
-        },
+        animation: { duration: 0 },
         plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                enabled: false, // Disable tooltip for gauge
-            }
+            legend: { display: false },
+            tooltip: { enabled: false },
         },
-        rotation: -90, // Start from top
-        circumference: 360, // Full circle
+        rotation: -90,
+        circumference: 360,
     };
 
     return (
@@ -74,11 +60,24 @@ export function ScoreGaugeCanvas({ score, title, color, className }: ScoreGaugeC
                 <Doughnut data={chartData} options={options} />
             </div>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-4xl font-bold" style={{ color: finalColor }}>
+                {/* Subtle glow */}
+                <div
+                    className="absolute w-24 h-24 rounded-full opacity-[0.12] blur-xl"
+                    style={{ backgroundColor: finalColor }}
+                />
+                <span
+                    className="text-4xl font-bold font-['Space_Grotesk',sans-serif] tabular-nums relative z-10"
+                    style={{ color: finalColor }}
+                >
                     {score}
                 </span>
-                {title && <span className="text-sm text-muted-foreground mt-1">{title}</span>}
+                {title && (
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 mt-1 relative z-10">
+                        {title.split('.').pop()?.replace(/_/g, ' ')}
+                    </span>
+                )}
             </div>
         </div>
     );
 }
+

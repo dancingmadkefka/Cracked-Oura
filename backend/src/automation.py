@@ -117,7 +117,7 @@ class OuraAutomator:
             
         except Exception as e:
             logger.error(f"Browser installation error: {e}")
-            raise e
+            raise
 
     async def start_login(self, email: str):
         """Initiates the login process with the provided email."""
@@ -195,7 +195,7 @@ class OuraAutomator:
 
         except Exception as e:
             logger.error(f"Login error: {e}")
-            raise e
+            raise
 
     def _is_logged_in(self) -> bool:
         """Determines if user appears logged in based on URL state."""

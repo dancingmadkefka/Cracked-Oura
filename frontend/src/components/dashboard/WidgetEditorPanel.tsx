@@ -23,7 +23,7 @@ export function WidgetEditorPanel({ onClose, onSave, onChange, widget }: WidgetE
     const [dataKey, setDataKey] = useState("");
     const [dataKeys, setDataKeys] = useState<string[]>([]);
     const [color, setColor] = useState("#8AB4F8");
-    const [dateRangeType, setDateRangeType] = useState<'all' | 'custom' | 'to_today' | 'last_30' | 'last_90' | 'selected_day' | 'relative'>('last_30');
+    const [dateRangeType, setDateRangeType] = useState<'all' | 'custom' | 'to_today' | 'last_30' | 'last_90' | 'selected_day' | 'relative' | 'default'>('last_30');
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [showPoints, setShowPoints] = useState(false);

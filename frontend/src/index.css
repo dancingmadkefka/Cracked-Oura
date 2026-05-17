@@ -4,49 +4,55 @@
 
 @layer base {
   :root {
-    --background: 224 28% 10%;
-    --background-soft: 226 23% 13%;
-    --foreground: 210 33% 98%;
-    --card: 223 28% 14%;
-    --card-foreground: 210 33% 98%;
-    --popover: 223 28% 13%;
-    --popover-foreground: 210 33% 98%;
-    --primary: 213 95% 68%;
-    --primary-foreground: 222 40% 10%;
-    --secondary: 222 20% 20%;
-    --secondary-foreground: 210 33% 98%;
-    --muted: 222 18% 18%;
-    --muted-foreground: 215 18% 67%;
-    --accent: 217 78% 60%;
-    --accent-foreground: 210 33% 98%;
-    --destructive: 0 76% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 224 17% 24%;
-    --input: 224 17% 22%;
-    --ring: 213 95% 68%;
-    --radius: 1.15rem;
+    --background: 210 20% 98%;
+    --background-soft: 210 20% 94%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+
+    /* Semantic data colors */
+    --sleep: 213 95% 68%;
+    --activity: 142 70% 45%;
+    --readiness: 35 90% 55%;
+    --health: 0 76% 60%;
   }
 
   .dark {
-    --background: 224 28% 10%;
-    --background-soft: 226 23% 13%;
+    --background: 224 28% 8%;
+    --background-soft: 226 23% 11%;
     --foreground: 210 33% 98%;
-    --card: 223 28% 14%;
+    --card: 223 28% 12%;
     --card-foreground: 210 33% 98%;
-    --popover: 223 28% 13%;
+    --popover: 223 28% 10%;
     --popover-foreground: 210 33% 98%;
     --primary: 213 95% 68%;
     --primary-foreground: 222 40% 10%;
-    --secondary: 222 20% 20%;
+    --secondary: 222 20% 16%;
     --secondary-foreground: 210 33% 98%;
-    --muted: 222 18% 18%;
-    --muted-foreground: 215 18% 67%;
+    --muted: 222 18% 16%;
+    --muted-foreground: 215 18% 60%;
     --accent: 217 78% 60%;
     --accent-foreground: 210 33% 98%;
     --destructive: 0 76% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 224 17% 24%;
-    --input: 224 17% 22%;
+    --border: 224 17% 20%;
+    --input: 224 17% 18%;
     --ring: 213 95% 68%;
   }
 }
@@ -58,61 +64,68 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: "Inter", "Segoe UI", sans-serif;
+    font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
     background-image:
-      radial-gradient(circle at top, rgba(115, 167, 255, 0.12), transparent 28%),
+      radial-gradient(circle at top left, rgba(115, 167, 255, 0.08), transparent 40%),
       linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background-soft)) 100%);
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
-
-  /* Disable React Grid Layout animations for instant resize */
-  .react-grid-layout,
-  .react-grid-item,
-  .react-grid-item.cssTransforms,
-  .react-grid-item.resizing,
-  .react-grid-item.react-grid-placeholder {
-    transition: none !important;
-    animation: none !important;
-    transform-style: flat !important;
-    /* Try to prevent 3D transform interpolation */
+}
+/* Disable React Grid Layout animations for instant resize */
+.react-grid-layout,
+.react-grid-item,
+.react-grid-item.cssTransforms,
+.react-grid-item.resizing,
+.react-grid-item.react-grid-placeholder {
+  transition: none !important;
+  animation: none !important;
+  transform-style: flat !important;
+}
+@layer utilities {
+  .glass {
+    @apply backdrop-blur-xl bg-white/[0.03] border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
   }
-
+  .glass-light {
+    @apply backdrop-blur-xl bg-black/[0.02] border border-black/[0.05] shadow-[0_8px_32px_0_rgba(0,0,0,0.1)];
+  }
 }
 
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
   background-clip: padding-box;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.22);
   background-clip: padding-box;
 }
 
-/* Custom Resize Handle Styles - High Visibility Update (Outside Layer for Specificity) */
+/* ─── Resize Handle ─── */
 .react-grid-item>.react-resizable-handle {
   width: 30px !important;
   height: 30px !important;
   bottom: 4px !important;
   right: 4px !important;
   z-index: 1000 !important;
-  /* Ensure it's above all card content */
   cursor: se-resize !important;
   background: transparent !important;
 }
 
-/* Distinct Corner Indicator (Diagonal Grip Lines) */
 .react-grid-item>.react-resizable-handle::after {
   content: "";
   position: absolute;
@@ -120,8 +133,6 @@
   right: 2px;
   width: 14px;
   height: 14px;
-
-  /* Diagonal lines pattern */
   background: linear-gradient(135deg,
       transparent 0%,
       transparent 40%,
@@ -131,21 +142,60 @@
       transparent 80%,
       hsl(var(--primary)) 80%,
       hsl(var(--primary)) 100%);
-
   opacity: 0.5;
   transition: all 0.2s ease-in-out;
-  /* Ensure no box artifacts */
   box-shadow: none;
   border: none;
-  /* Clip to bottom-right triangle for clean look */
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
-/* Hover State */
 .react-grid-item:hover>.react-resizable-handle::after,
 .react-grid-item>.react-resizable-handle:hover::after {
   opacity: 1;
   width: 18px;
   height: 18px;
-
 }
+
+/* ─── Widget Entrance Animations ─── */
+@keyframes widget-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.widget-card {
+  animation: widget-enter 0.25s ease-out both;
+}
+
+/* Stagger children */
+.widget-card:nth-child(2)  { animation-delay: 50ms; }
+.widget-card:nth-child(3)  { animation-delay: 100ms; }
+.widget-card:nth-child(4)  { animation-delay: 150ms; }
+.widget-card:nth-child(5)  { animation-delay: 200ms; }
+.widget-card:nth-child(6)  { animation-delay: 250ms; }
+.widget-card:nth-child(7)  { animation-delay: 300ms; }
+.widget-card:nth-child(8)  { animation-delay: 350ms; }
+
+/* ─── Utility Classes ─── */
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-hover:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 24px rgba(115, 167, 255, 0.12);
+  }
+}
+

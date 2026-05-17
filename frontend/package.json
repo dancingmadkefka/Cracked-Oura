@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:react\" \"npm run dev:electron\"",
     "dev:react": "vite",
-    "dev:electron": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json',JSON.stringify({type:'commonjs'}))\" && cross-env NODE_ENV=development electron .",
+    "dev:electron": "wait-on tcp:5188 && tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json',JSON.stringify({type:'commonjs'}))\" && cross-env NODE_ENV=development electron .",
     "build:backend": "node scripts/build-backend.cjs",
     "build": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\" && npm run build:backend && tsc -b && vite build && tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json',JSON.stringify({type:'commonjs'}))\" && electron-builder",
     "lint": "eslint .",

@@ -276,11 +276,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const isBusy = loading || isExporting;
 
     return (
-        <div className="w-[400px] border-l bg-card flex flex-col h-full">
+        <div className="w-[400px] border-l border-white/8 bg-[linear-gradient(180deg,rgba(14,16,22,0.98),rgba(10,12,18,0.96))] flex flex-col h-full">
             {/* Header */}
-            <div className="p-5 border-b flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Settings</h2>
-                <Button variant="ghost" size="icon" onClick={onClose}>
+            <div className="p-5 border-b border-white/8 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">Configuration</p>
+                    <h2 className="text-lg font-semibold font-['Space_Grotesk',sans-serif] text-white mt-0.5">Settings</h2>
+                </div>
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-xl text-white/50 hover:text-white hover:bg-white/8">
                     <X className="h-4 w-4" />
                 </Button>
             </div>
@@ -288,9 +291,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <div className="flex-1 p-5 space-y-6 overflow-y-auto">
                 {/* ─── Connection ─── */}
                 <div className="space-y-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Connection</h3>
+                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Connection</h3>
 
-                    <div className="rounded-lg border p-4 space-y-3">
+                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-3">
                         {/* Status line */}
                         <div className="flex items-center gap-2">
                             <div className={cn(
@@ -403,7 +406,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                 {/* ─── Sync Data ─── */}
                 <div className="space-y-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sync Data</h3>
+                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Sync Data</h3>
 
                     <div className="space-y-2">
                         <Button
@@ -443,7 +446,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                 {/* ─── Schedule ─── */}
                 <div className="space-y-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Schedule</h3>
+                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Schedule</h3>
                     <div className="flex items-center gap-3">
                         <Label className="text-sm shrink-0">Auto-sync daily at</Label>
                         <Input
@@ -460,8 +463,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                 {/* ─── AI Advisor ─── */}
                 <div className="space-y-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Advisor</h3>
-                    <div className="rounded-lg border p-4 space-y-3">
+                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">AI Advisor</h3>
+                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-3">
                         <p className="text-xs text-muted-foreground">
                             The AI Advisor works with any OpenAI-compatible endpoint — <a href="https://lmstudio.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">LM Studio</a>, <a href="https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">llama.cpp server</a>, local proxies, or cloud APIs.
                         </p>
@@ -514,9 +517,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                 {/* ─── Mobile App ─── */}
                 <div className="space-y-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mobile App</h3>
+                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Mobile App</h3>
 
-                    <div className="rounded-lg border p-4 space-y-4">
+                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-4">
                         <div className="flex items-center justify-between gap-4">
                             <Label>Enable Mobile API</Label>
                             <Switch
@@ -595,7 +598,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                 {/* ─── Layout (collapsed, at bottom) ─── */}
                 <div className="space-y-3 pt-4 border-t">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Layout</h3>
+                    <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Layout</h3>
                     <div className="grid grid-cols-1 gap-2">
                         <Button
                             variant="outline"

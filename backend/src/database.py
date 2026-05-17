@@ -68,7 +68,7 @@ def init_db():
         logger.info(f"Database initialized at {DB_PATH}")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
-        raise e
+        raise
 
 def get_db():
     """

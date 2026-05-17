@@ -76,7 +76,7 @@ class CommonProcessor(IngestionBase):
                     hardware_type=row.get('hardware_type')
                 )
                 records.append(conf)
-            except:
+            except Exception:
                 pass
         self._upsert(RingConfiguration, records, ['id'])
 
@@ -92,7 +92,7 @@ class CommonProcessor(IngestionBase):
                     comment=row.get('comment')
                 )
                 records.append(tag)
-            except:
+            except Exception:
                 pass
         self._upsert(Tag, records, ['id'])
 
@@ -106,6 +106,6 @@ class CommonProcessor(IngestionBase):
                     vascular_age=self._parse_int(row.get('vascular_age'))
                 )
                 records.append(rec)
-            except:
+            except Exception:
                 pass
         self._upsert(CardiovascularAge, records, ['day'])

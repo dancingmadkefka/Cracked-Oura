@@ -148,7 +148,7 @@ class IngestionBase:
             logger.error(f"Error in _upsert for {model.__tablename__}: {e}")
             if data:
                 logger.debug(f"First record sample: {data[0]}")
-            raise e
+            raise
 
     def _batch_upsert(self, model: Type[Base], data: List[Any], index_elements: List[str], batch_size=1000):
         """Batch upsert wrapper to avoid SQLite limit restrictions."""
@@ -185,7 +185,7 @@ class IngestionBase:
             val = val.replace('"', '')
         try:
             return pd.to_datetime(val, format='ISO8601').to_pydatetime()
-        except:
+        except Exception:
             return None
 
     def _parse_date(self, val):
@@ -197,7 +197,7 @@ class IngestionBase:
             val = val.replace('"', '')
         try:
             return pd.to_datetime(val).date()
-        except:
+        except Exception:
             return None
 
     def _parse_float(self, val):
@@ -257,7 +257,7 @@ class IngestionBase:
                         parsed = ast.literal_eval(val_str)
                         if isinstance(parsed, list):
                             items = parsed
-                except:
+                except Exception:
                     pass
 
             if items is None:
@@ -266,13 +266,13 @@ class IngestionBase:
                 if ',' in val_cleaned:
                         try:
                             items = [float(x.strip()) for x in val_cleaned.strip('[]').split(',') if x.strip()]
-                        except:
+                        except Exception:
                             pass
                 else:
                     # Hypnogram string case: "4422233"
                     try:
                         items = [int(c) for c in val_cleaned if c.isdigit()]
-                    except:
+                    except Exception:
                         pass
 
         if not items:

@@ -5,42 +5,44 @@ import { cn } from "@/lib/utils";
 export function ThoughtsDisplay({ thoughts }: { thoughts: any[] }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    // Find SQL query
     const sqlStep = thoughts.find(t => t.tool === 'run_sql');
     const sqlQuery = sqlStep?.params?.query;
 
     return (
-        <div className="w-full max-w-2xl bg-card border rounded-lg overflow-hidden text-sm mt-3">
-            {/* SQL Query Preview (Always visible if exists) */}
+        <div className="w-full max-w-2xl rounded-xl border border-white/8 bg-white/[0.03] overflow-hidden text-sm mt-3 shadow-md">
+            {/* SQL Query */}
             {sqlQuery && (
-                <div className="bg-muted/30 p-3 border-b font-mono text-xs">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                        <Database className="h-3 w-3" />
-                        <span className="font-semibold">SQL Query Executed</span>
+                <div className="p-3 border-b border-white/6">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="h-5 w-5 rounded-md bg-blue-500/15 flex items-center justify-center">
+                            <Database className="h-3 w-3 text-blue-400" />
+                        </div>
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-blue-400/80 font-medium">SQL Query</span>
                     </div>
-                    <div className="text-blue-500 dark:text-blue-400 overflow-x-auto whitespace-pre-wrap bg-background p-2 rounded border">
+                    <div className="font-mono text-xs text-blue-300/90 overflow-x-auto whitespace-pre-wrap bg-black/30 p-3 rounded-lg border border-white/6">
                         {sqlQuery}
                     </div>
                 </div>
             )}
 
-            {/* Python Code Preview (Always visible if exists) */}
+            {/* Python Code */}
             {thoughts.filter(t => t.tool === 'run_python').map((step, i) => {
-                // Find the result (usually the next step)
                 const resultStep = thoughts.find(t => t.step === step.step + 1 && t.type === 'tool_result');
                 return (
-                    <div key={i} className="bg-muted/30 p-3 border-b font-mono text-xs">
-                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                            <Terminal className="h-3 w-3 text-yellow-600 dark:text-yellow-500" />
-                            <span className="font-semibold">Python Analysis</span>
+                    <div key={i} className="p-3 border-b border-white/6">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="h-5 w-5 rounded-md bg-yellow-500/15 flex items-center justify-center">
+                                <Terminal className="h-3 w-3 text-yellow-400" />
+                            </div>
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-yellow-400/80 font-medium">Python Analysis</span>
                         </div>
                         <div className="space-y-2">
-                            <div className="text-yellow-600 dark:text-yellow-400 overflow-x-auto whitespace-pre-wrap bg-background p-2 rounded border">
+                            <div className="font-mono text-xs text-yellow-300/80 overflow-x-auto whitespace-pre-wrap bg-black/30 p-3 rounded-lg border border-white/6">
                                 {step.params?.code}
                             </div>
                             {resultStep && (
-                                <div className="text-muted-foreground overflow-x-auto whitespace-pre-wrap bg-background/50 p-2 rounded border border-dashed">
-                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1">Result</span>
+                                <div className="font-mono text-xs text-white/50 overflow-x-auto whitespace-pre-wrap bg-black/20 p-3 rounded-lg border border-dashed border-white/6">
+                                    <span className="text-[9px] uppercase tracking-[0.2em] font-semibold text-white/30 block mb-1">Result</span>
                                     {typeof resultStep.content === 'string' ? resultStep.content : JSON.stringify(resultStep.content)}
                                 </div>
                             )}
@@ -49,21 +51,21 @@ export function ThoughtsDisplay({ thoughts }: { thoughts: any[] }) {
                 );
             })}
 
-            {/* Collapsible Internal Monologue */}
+            {/* Collapsible Debug */}
             <div>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-between p-2 px-3 bg-muted/10 hover:bg-muted/30 transition-colors text-xs text-muted-foreground"
+                    className="w-full flex items-center justify-between p-2.5 px-3 bg-white/[0.02] hover:bg-white/[0.05] transition-colors text-xs text-white/40"
                 >
                     <span className="flex items-center gap-2">
                         <Terminal className="h-3 w-3" />
-                        Internal Monologue & Debug Info
+                        Debug log
                     </span>
                     {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                 </button>
 
                 {isOpen && (
-                    <div className="p-3 bg-muted/10 space-y-3 border-t">
+                    <div className="p-3 bg-black/20 space-y-3 border-t border-white/6">
                         {thoughts.map((step, i) => (
                             <ThoughtStep key={i} step={step} />
                         ))}
@@ -81,13 +83,13 @@ function ThoughtStep({ step }: { step: any }) {
 
     return (
         <div className="text-xs">
-            <div className="font-semibold text-foreground/80 flex items-center gap-2 mb-1">
-                <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
+            <div className="font-semibold text-white/60 flex items-center gap-2 mb-1">
+                <span className="bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] px-1.5 py-0.5 rounded text-[9px] uppercase tracking-[0.2em] font-['Space_Grotesk',sans-serif]">
                     Step {step.step}
                 </span>
-                {step.type}
+                <span className="text-white/40">{step.type}</span>
             </div>
-            <div className="font-mono bg-background p-2 rounded border text-muted-foreground whitespace-pre-wrap overflow-x-auto relative">
+            <div className="font-mono bg-black/30 p-2.5 rounded-lg border border-white/6 text-white/50 whitespace-pre-wrap overflow-x-auto relative">
                 <div className={cn(
                     "overflow-hidden transition-all",
                     !isExpanded && isLong ? "max-h-[150px] mask-linear-fade" : ""
@@ -97,7 +99,7 @@ function ThoughtStep({ step }: { step: any }) {
                 {isLong && (
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="mt-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:underline flex items-center gap-1"
+                        className="mt-2 text-[9px] uppercase tracking-[0.2em] font-bold text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
                     >
                         {isExpanded ? "Show Less" : "Show Full Output"}
                         {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -107,3 +109,4 @@ function ThoughtStep({ step }: { step: any }) {
         </div>
     );
 }
+

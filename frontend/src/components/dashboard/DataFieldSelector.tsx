@@ -210,20 +210,10 @@ export function DataFieldSelector({ onSelect, selectedPath, selectedPaths, multi
 
                     fields.forEach(f => {
                         if (f.is_json) {
-                            // It's a JSON column, check hints
                             const hints = JSON_HINTS[domain]?.[f.name];
                             if (hints) {
-                                if (Array.isArray(hints)) {
-                                    // Legacy array format
-                                    node.children![f.name] = {
-                                        fields: hints
-                                    };
-                                } else {
-                                    // New object format with nested structure
-                                    node.children![f.name] = hints;
-                                }
+                                node.children![f.name] = hints;
                             } else {
-                                // No hints, just show as field (or maybe generic 'json' node?)
                                 node.fields!.push(f.name);
                             }
                         } else {

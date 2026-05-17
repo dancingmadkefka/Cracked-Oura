@@ -1,27 +1,23 @@
-from fastapi import FastAPI, BackgroundTasks, Request
-from fastapi.middleware.cors import CORSMiddleware
-from backend.src.api.routes import router
-from backend.src.api.mobile import router as mobile_router
-from backend.src.database import init_db
-
+import os
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from backend.src.automation import automator
-from backend.src.ingestion import OuraParser
-from backend.src.database import SessionLocal
-from backend.src.config import config_manager
-from backend.src.mobile_server_manager import mobile_server_manager
-import os
-from pydantic import BaseModel
-
 from contextlib import asynccontextmanager
 
-# Configure logging
-from backend.src.paths import get_user_data_dir
-import logging
-import os
+from fastapi import FastAPI, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+from backend.src.api.routes import router
+from backend.src.api.mobile import router as mobile_router
+from backend.src.database import init_db, SessionLocal
+from backend.src.automation import automator
+from backend.src.ingestion import OuraParser
+from backend.src.config import config_manager
+from backend.src.mobile_server_manager import mobile_server_manager
+from backend.src.paths import get_user_data_dir
+
+# ─── Logging ───
 log_dir = get_user_data_dir()
 log_file = os.path.join(log_dir, "backend_debug.log")
 
@@ -67,13 +63,6 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
-
-# Configure CORS
-origins = [
-    "http://localhost",
-    "http://localhost:3000", # Frontend
-    "http://localhost:8000", # Backend
-]
 
 app.add_middleware(
     CORSMiddleware,
@@ -394,50 +383,35 @@ async def background_worker():
 
 # Mount Static Files
 from fastapi.staticfiles import StaticFiles
-import os
 
-# Robustly find the frontend/dist directory relative to this file
-# engine/src/api/main.py -> ../../../frontend/dist
 current_dir = os.path.dirname(os.path.abspath(__file__))
 dist_dir = os.path.join(current_dir, "../../../frontend/dist")
 
 if os.path.exists(dist_dir):
     app.mount("/", StaticFiles(directory=dist_dir, html=True), name="static")
-else:
-    pass
 
 
 if __name__ == "__main__":
     import uvicorn
     import sys
-    import os
+    import traceback
 
     if os.environ.get("CRACKED_OURA_RUN_MODE") == "mobile_server":
         from backend.src.mobile_server import main as mobile_server_main
-
         mobile_server_main()
         raise SystemExit(0)
 
-    # Check if running as a PyInstaller bundle
     if getattr(sys, 'frozen', False):
         try:
-            # Production (Frozen)
             uvicorn.run(app, host="127.0.0.1", port=8000, reload=False)
         except Exception as e:
-            # Emergency logging if startup fails
-            from backend.src.paths import get_user_data_dir
-            import os
-            import traceback
-            
             try:
                 log_path = os.path.join(get_user_data_dir(), "startup_crash.log")
                 with open(log_path, "w", encoding="utf-8") as f:
                     f.write(f"Startup Crash: {e}\n")
                     f.write(traceback.format_exc())
-            except:
-                pass # Failed to write log
-            raise e
+            except Exception:
+                pass
+            raise
     else:
-        # Development
-        # Run the server with auto-reload
         uvicorn.run("backend.src.api.main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["backend"])

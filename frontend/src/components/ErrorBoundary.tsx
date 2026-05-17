@@ -32,10 +32,12 @@ export class ErrorBoundary extends Component<Props, State> {
             }
 
             return (
-                <div className="flex flex-col items-center justify-center h-full p-4 text-center text-muted-foreground bg-secondary/10 rounded-lg">
-                    <AlertCircle className="h-8 w-8 mb-2 text-destructive" />
-                    <p className="text-sm font-medium text-foreground">Something went wrong</p>
-                    <p className="text-xs max-w-[200px] truncate" title={this.state.error?.message}>
+                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                    <div className="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-3">
+                        <AlertCircle className="h-5 w-5 text-red-400" />
+                    </div>
+                    <p className="text-sm font-medium text-white/70">Widget Error</p>
+                    <p className="text-[10px] text-white/30 max-w-[200px] truncate mt-1" title={this.state.error?.message}>
                         {this.state.error?.message || "Unknown error"}
                     </p>
                 </div>

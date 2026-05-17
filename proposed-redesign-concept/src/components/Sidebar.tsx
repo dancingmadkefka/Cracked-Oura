@@ -1,0 +1,189 @@
+import React from 'react';
+import { 
+  LayoutDashboard, 
+  HeartPulse, 
+  Moon, 
+  Flame, 
+  ShieldAlert, 
+  TrendingUp, 
+  Users, 
+  Tags, 
+  Sparkles, 
+  Sliders, 
+  BatteryMedium, 
+  RefreshCw,
+  MoonStar,
+  Circle,
+  Bluetooth
+} from 'lucide-react';
+import { userProfile } from '../data/mockOuraData';
+import { cn } from '../utils/cn';
+
+interface SidebarProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  restMode: boolean;
+  setRestMode: (val: boolean) => void;
+  onOpenSettings: () => void;
+  onSync: () => void;
+  isSyncing: boolean;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  setActiveTab,
+  restMode,
+  setRestMode,
+  onOpenSettings,
+  onSync,
+  isSyncing
+}) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'readiness', label: 'Readiness', icon: HeartPulse },
+    { id: 'sleep', label: 'Sleep', icon: Moon },
+    { id: 'activity', label: 'Activity', icon: Flame },
+    { id: 'resilience', label: 'Stress & Resilience', icon: ShieldAlert },
+    { id: 'trends', label: 'Trends & Explorer', icon: TrendingUp },
+    { id: 'circles', label: 'Oura Circles', icon: Users },
+    { id: 'tags', label: 'Tags & Journal', icon: Tags },
+    { id: 'labs', label: 'Oura Labs AI', icon: Sparkles, badge: 'NEW' },
+  ];
+
+  const bottomNav = [
+    { id: 'trends', label: 'Trends', icon: TrendingUp },
+    { id: 'labs', label: 'Advisor', icon: Sparkles },
+    { id: 'circles', label: 'Circles', icon: Users },
+  ];
+
+  return (
+    <aside className="w-64 glass-sidebar flex flex-col h-screen select-none shrink-0 text-white/40">
+      {/* ─── Brand Header (Design A) ─── */}
+      <div className="p-4 flex items-center gap-3 border-b border-white/[0.06]">
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-lg shadow-white/10 flex-shrink-0">
+          <span className="text-oura-black font-bold text-base">Ō</span>
+        </div>
+        <div>
+          <h1 className="font-serif text-lg font-semibold tracking-wide text-white leading-tight">ŌURA</h1>
+          <p className="text-[10px] text-white/30 tracking-wider uppercase font-medium">Desktop OS</p>
+        </div>
+      </div>
+
+      {/* ─── User Profile (Design A glass card style) ─── */}
+      <div className="mx-3 my-3 glass-card rounded-2xl p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-helsinki to-enso-blue flex items-center justify-center flex-shrink-0 shadow-lg">
+            <span className="text-white font-bold text-sm">AW</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-white text-sm font-semibold truncate">{userProfile.name}</p>
+            <p className="text-white/30 text-[11px] truncate">{userProfile.ringModel} · {userProfile.ringFinish}</p>
+          </div>
+        </div>
+        {/* Ring connection status */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-score-green pulse-dot" />
+            <span className="text-white/35 text-[11px] font-medium">
+              Ring Connected
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-white/30 text-[11px]">
+            <BatteryMedium className="w-3.5 h-3.5 text-score-green" />
+            <span>{userProfile.batteryLevel}%</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-white/25 text-[10px]">Last sync: Just now</span>
+          <button 
+            onClick={onSync}
+            disabled={isSyncing}
+            className="text-white/40 hover:text-white transition-colors cursor-pointer"
+          >
+            <RefreshCw className={cn('w-3 h-3', isSyncing && 'animate-spin text-enso-blue')} />
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Main Navigation ─── */}
+      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer',
+                isActive
+                  ? 'glass-tab text-white shadow-sm'
+                  : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+              )}
+            >
+              <div className="flex items-center gap-3 truncate">
+                <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-enso-blue')} />
+                <span className="truncate">{item.label}</span>
+              </div>
+              {item.badge && (
+                <span className="text-[10px] bg-living-coral/90 text-white px-1.5 py-0.5 rounded-md font-semibold tracking-wide">
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ─── Bottom Actions ─── */}
+      <div className="p-3 border-t border-white/[0.06] space-y-3">
+        {/* Rest Mode Toggle (Design B feature with Design A styling) */}
+        <div className="glass-tab rounded-xl p-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              'w-7 h-7 rounded-lg flex items-center justify-center',
+              restMode ? 'bg-helsinki/40 text-enso-blue' : 'bg-white/[0.05] text-white/30'
+            )}>
+              <MoonStar className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-white">Rest Mode</div>
+              <div className="text-[10px] text-white/30">{restMode ? 'Prioritizing Sleep' : 'Standard Focus'}</div>
+            </div>
+          </div>
+          <button 
+            onClick={() => setRestMode(!restMode)}
+            className={cn(
+              'w-9 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer',
+              restMode ? 'bg-helsinki' : 'bg-white/[0.12]'
+            )}
+          >
+            <div className={cn(
+              'bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200',
+              restMode ? 'translate-x-4' : 'translate-x-0'
+            )} />
+          </button>
+        </div>
+
+        {/* User / Settings Footer */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5 truncate">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-helsinki to-enso-blue flex items-center justify-center font-semibold text-xs text-white shrink-0">
+              AW
+            </div>
+            <div className="truncate">
+              <div className="text-xs font-medium text-white/70 truncate">{userProfile.name}</div>
+            </div>
+          </div>
+          <button 
+            onClick={onOpenSettings}
+            className="p-1.5 hover:bg-white/[0.06] rounded-lg text-white/30 hover:text-white/70 transition-colors cursor-pointer"
+            title="Settings"
+          >
+            <Sliders className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+};

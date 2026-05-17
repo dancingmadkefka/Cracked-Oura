@@ -113,10 +113,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
 
 
-    const persist = (newDashboards: Dashboard[], newActiveId: string) => {
-        saveDashboards(newDashboards, newActiveId);
-    };
-
     // --- Actions ---
 
     const addDashboard = () => {
@@ -131,7 +127,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         setDashboards(newDashboards);
         setActiveDashboardId(newId);
         setActiveView('dashboard');
-        persist(newDashboards, newId);
+        saveDashboards(newDashboards, newId);
     };
 
     const deleteDashboard = (id: string) => {
@@ -144,7 +140,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             newActiveId = newDashboards[0].id;
             setActiveDashboardId(newActiveId);
         }
-        persist(newDashboards, newActiveId);
+        saveDashboards(newDashboards, newActiveId);
     };
 
     const renameDashboard = (id: string, name: string) => {
@@ -152,17 +148,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             d.id === id ? { ...d, name } : d
         );
         setDashboards(newDashboards);
-        persist(newDashboards, activeDashboardId);
+        saveDashboards(newDashboards, activeDashboardId);
     };
 
-    // Overriding updateActiveDashboard to handle persistence
     const handleUpdateActiveDashboard = (updates: Partial<Dashboard>) => {
         const newDashboards = dashboards.map(d =>
             d.id === activeDashboardId ? { ...d, ...updates } : d
         );
         setDashboards(newDashboards);
-        // We persist here because most updates (layout, widget CRUD) should be saved.
-        persist(newDashboards, activeDashboardId);
+        saveDashboards(newDashboards, activeDashboardId);
     };
 
     // Widget Actions
@@ -216,7 +210,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         setEditingWidget(undefined);
         setOriginalWidget(undefined);
         setActivePanel('none');
-        persist(dashboards, activeDashboardId); // Save state "snapshot"
+        saveDashboards(dashboards, activeDashboardId);
     };
 
     const cancelEditingWidget = () => {
@@ -239,12 +233,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const deleteWidget = (id: string) => {
         const newWidgets = widgets.filter(w => w.id !== id);
         const newLayout = layout.filter(l => l.i !== id);
-        // Update and Save
         const newDashboards = dashboards.map(d =>
             d.id === activeDashboardId ? { ...d, widgets: newWidgets, layout: newLayout } : d
         );
         setDashboards(newDashboards);
-        persist(newDashboards, activeDashboardId);
+        saveDashboards(newDashboards, activeDashboardId);
     };
 
     return (

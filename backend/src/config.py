@@ -2,16 +2,37 @@ import json
 import os
 import threading
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from .paths import get_user_data_dir
 
 CONFIG_FILE = "oura_config.json"
 DASHBOARD_FILE = "oura_dashboard.json"
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ConfigManager")
+
+DEFAULT_CONFIG = {
+    "email": "",
+    "schedule_time": "11:00",
+    "last_run": None,
+    "next_run": None,
+    "status": "Idle",
+    "logged_in": False,
+    "is_active": True,
+    "headless": True,
+    "llm_model": "llama3.1:latest",
+    "llm_host": "http://localhost:1234/v1",
+    "llm_api_key": "not-needed",
+    "mobile_sync_enabled": False,
+    "mobile_sync_token": "",
+    "mobile_sync_default_window_days": 180,
+    "mobile_sync_bind_host": "0.0.0.0",
+    "mobile_sync_port": 8037,
+}
+
+DEFAULT_DASHBOARD = {"dashboard": {"dashboards": [], "activeDashboardId": None}}
+
 
 class ConfigManager:
     """
@@ -26,64 +47,20 @@ class ConfigManager:
         self._ensure_config()
 
     def _ensure_config(self):
-        """Ensures configuration files exist, creating defaults if necessary."""
-        # 1. Ensure main config exists
-        if not os.path.exists(self.config_path):
-            default_config = {
-                "email": "",
-                "schedule_time": "11:00", # Default 11 AM
-                "last_run": None,
-                "next_run": None,
-                "status": "Idle",
-                "logged_in": False,
-                "is_active": True,
-                "headless": True,
-                "llm_model": "llama3.1:latest",
-                "llm_host": "http://localhost:1234/v1",
-                "llm_api_key": "not-needed",
-                "mobile_sync_enabled": False,
-                "mobile_sync_token": "",
-                "mobile_sync_default_window_days": 180,
-                "mobile_sync_bind_host": "0.0.0.0",
-                "mobile_sync_port": 8037
-            }
-            self._save_file(self.config_path, default_config)
-
-        # 2. Ensure dashboard config exists (or migrate)
-        main_conf = self._load_file(self.config_path)
-
-        default_main_values = {
-            "email": "",
-            "schedule_time": "11:00",
-            "last_run": None,
-            "next_run": None,
-            "status": "Idle",
-            "logged_in": False,
-            "is_active": True,
-            "headless": True,
-            "llm_model": "llama3.1:latest",
-            "llm_host": "http://localhost:1234/v1",
-            "llm_api_key": "not-needed",
-            "mobile_sync_enabled": False,
-            "mobile_sync_token": "",
-            "mobile_sync_default_window_days": 180,
-            "mobile_sync_bind_host": "0.0.0.0",
-            "mobile_sync_port": 8037
-        }
-
-        missing_defaults = False
-        for key, value in default_main_values.items():
+        """Ensures configuration files exist with all required keys."""
+        # Main config: create or backfill missing keys
+        main_conf = self._load_file(self.config_path) if os.path.exists(self.config_path) else {}
+        changed = False
+        for key, value in DEFAULT_CONFIG.items():
             if key not in main_conf:
                 main_conf[key] = value
-                missing_defaults = True
-
-        if missing_defaults:
+                changed = True
+        if changed or not os.path.exists(self.config_path):
             self._save_file(self.config_path, main_conf)
 
-        # 2. Ensure dashboard config exists
+        # Dashboard config: create if missing
         if not os.path.exists(self.dashboard_path):
-             # Create empty default if doesn't exist
-             self._save_file(self.dashboard_path, {"dashboard": {"dashboards": [], "activeDashboardId": None}})
+            self._save_file(self.dashboard_path, DEFAULT_DASHBOARD)
 
     def _load_file(self, path: str) -> Dict[str, Any]:
         """Loads JSON content from a file safely."""

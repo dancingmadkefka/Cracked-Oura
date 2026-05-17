@@ -36,6 +36,23 @@ logger = logging.getLogger("API")
 # Router Initialization
 router = APIRouter()
 
+# ─── Shared Model Registry ───
+MODEL_MAP = {
+    "sleep": Sleep,
+    "activity": Activity,
+    "readiness": Readiness,
+    "resilience": Resilience,
+    "cardiovascular_age": CardiovascularAge,
+    "sleep_session": SleepSession,
+    "workout": Workout,
+    "meditation": Meditation,
+    "ring_battery": RingBattery,
+    "heart_rate": HeartRate,
+    "temperature": Temperature,
+    "ring_configuration": RingConfiguration,
+    "tag": Tag,
+}
+
 # -----------------------------------------------------------------------------
 # Data Models and request/response schemas
 # -----------------------------------------------------------------------------
@@ -229,14 +246,7 @@ async def download_export(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/api/automation/clear-session")
-async def clear_session():
-    """Clears the automation session (cookies/storage)."""
-    try:
-        await automator.clear_session()
-        return {"message": "Session cleared"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# NOTE: /api/automation/clear-session is defined in main.py (app-level)
 
 # -----------------------------------------------------------------------------
 # Settings Endpoints
@@ -298,12 +308,6 @@ async def save_dashboard_config(request: DashboardConfigRequest):
             update_data["dashboards"] = [d.dict() for d in request.dashboards]
         if request.activeDashboardId is not None:
             update_data["activeDashboardId"] = request.activeDashboardId
-        
-        # Legacy fallback
-        if request.layout is not None:
-            update_data["layout"] = request.layout
-        if request.widgets is not None:
-            update_data["widgets"] = request.widgets
 
         config_manager.update_config(dashboard=update_data)
         return {"message": "Dashboard saved"}
@@ -406,7 +410,6 @@ def query_data(
         field = parts[1].lower()
         json_key = ".".join(parts[2:]) if len(parts) > 2 else None
         
-        # Map domain name to SQLAlchemy Model
         model_map = {
             "sleep": Sleep,
             "activity": Activity,
@@ -493,7 +496,6 @@ def get_schema():
     Introspects the database models to return a schema definition.
     Useful for the frontend to build dynamic selectors.
     """
-
     
     model_map = {
         "sleep": Sleep,
@@ -526,7 +528,7 @@ def get_schema():
                     try:
                         type_str = str(col.type).upper()
                         is_json = 'JSON' in type_str
-                    except:
+                    except Exception:
                         pass
                     
                     fields.append({

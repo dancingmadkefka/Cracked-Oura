@@ -126,42 +126,38 @@ export function MainLayout({
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
-                <header className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,16,22,0.94),rgba(15,16,22,0.86))] px-6 py-5 backdrop-blur-xl">
+                <header className="sticky top-0 z-[100] border-b border-white/[0.04] bg-[#050505]/80 backdrop-blur-2xl px-8 py-6">
                     <div className="flex items-start justify-between gap-6">
                         <div className="min-w-0 space-y-4">
-                            <div className="space-y-2">
-                                <p className="text-[11px] uppercase tracking-[0.28em] text-[hsl(var(--muted-foreground))]">
-                                    Command Center
-                                </p>
+                            <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3">
-                                    <h1 className="truncate font-['Space_Grotesk',sans-serif] text-3xl font-semibold tracking-tight text-white">
+                                    <h1 className="font-['Space_Grotesk',sans-serif] text-3xl font-medium tracking-tight text-white/95">
                                         {activeDashboardName}
                                     </h1>
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))]">
-                                        {activeView === 'chat-page' ? "Advisor mode" : "Dashboard mode"}
-                                    </span>
-                                    {syncInfo && (
-                                        <span
-                                            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[hsl(var(--muted-foreground))]"
-                                            title={syncInfo.lastRun
-                                                ? `Last synced: ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
-                                                : "Never synced"}
-                                        >
-                                            <span className={cn(
-                                                "h-2 w-2 rounded-full",
-                                                syncInfo.status === 'Processing' ? "bg-yellow-500 animate-pulse" :
-                                                syncInfo.status === 'Error' ? "bg-red-500" :
-                                                syncInfo.lastRun ? "bg-green-500" : "bg-gray-500"
-                                            )} />
-                                            {syncInfo.lastRun
-                                                ? `Synced ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
-                                                : "Not synced"}
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="rounded-full bg-white/[0.03] border border-white/[0.05] px-2.5 py-0.5 text-[10px] font-medium tracking-wider text-white/40 uppercase">
+                                            {activeView === 'chat-page' ? "Advisor" : "Dashboard"}
                                         </span>
-                                    )}
+                                        {syncInfo && (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] text-white/40"
+                                                title={syncInfo.lastRun
+                                                    ? `Last synced: ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
+                                                    : "Never synced"}
+                                            >
+                                                <span className={cn(
+                                                    "h-1.5 w-1.5 rounded-full",
+                                                    syncInfo.status === 'Processing' ? "bg-amber-400/80 animate-pulse" :
+                                                    syncInfo.status === 'Error' ? "bg-rose-500/80" :
+                                                    syncInfo.lastRun ? "bg-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.4)]" : "bg-white/20"
+                                                )} />
+                                                {syncInfo.lastRun
+                                                    ? `Synced ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
+                                                    : "Not synced"}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="max-w-3xl text-sm text-[hsl(var(--muted-foreground))]">
-                                    One place to inspect recovery, sleep, activity, and ingestion state without digging through side panels.
-                                </p>
                             </div>
 
                             <div className="flex flex-wrap gap-3">

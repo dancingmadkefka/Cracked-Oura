@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings, Trash2, GripHorizontal } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WidgetCardProps {
@@ -25,21 +25,25 @@ export function WidgetCard({
     headerContent
 }: WidgetCardProps) {
     return (
-        <Card className={cn("relative flex h-full flex-col overflow-hidden rounded-[26px] border border-white/8 bg-[linear-gradient(180deg,rgba(17,20,29,0.96),rgba(10,12,18,0.94))] shadow-[0_18px_60px_rgba(0,0,0,0.22)]", className)}>
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_24%)]" />
+        <Card className={cn(
+            "group relative flex h-full flex-col overflow-hidden rounded-[24px] border border-white/[0.04] bg-[#0a0a0c]/80 backdrop-blur-3xl shadow-xl transition-colors hover:bg-[#0f0f11]/90",
+            isEditing && "ring-1 ring-white/10",
+            className
+        )}>
             {isEditing && (
                 <div
-                    className="drag-handle absolute left-1/2 top-0 z-[100] flex h-6 w-14 -translate-x-1/2 items-center justify-center rounded-b-xl border-x border-b border-white/10 bg-white/10 backdrop-blur-[6px] opacity-0 shadow-sm transition-all group-hover:opacity-100 cursor-move"
+                    className="drag-handle absolute inset-x-0 top-0 z-[100] h-6 flex cursor-move items-center justify-center bg-white/[0.02] opacity-0 transition-opacity group-hover:opacity-100"
                     title="Drag to move"
                 >
-                    <GripHorizontal className="h-4 w-4 text-white/65" />
+                    <div className="h-1 w-8 rounded-full bg-white/20" />
                 </div>
             )}
-            <CardHeader className={cn("relative z-[50] flex flex-row items-center justify-between space-y-0 px-5 pb-3 pt-5")}>
-                <div className="flex flex-col">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-[hsl(var(--muted-foreground))]">Widget</p>
-                    <CardTitle className="mt-1 font-['Space_Grotesk',sans-serif] text-base font-semibold tracking-tight text-white">{title}</CardTitle>
-                    {subtitle && <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{subtitle}</p>}
+            <CardHeader className={cn("relative z-[50] flex flex-row items-center justify-between space-y-0 px-6 pb-2 pt-6")}>
+                <div className="flex flex-col gap-0.5">
+                    <CardTitle className="font-['Space_Grotesk',sans-serif] text-[15px] font-medium tracking-tight text-white/90">
+                        {title}
+                    </CardTitle>
+                    {subtitle && <p className="text-[11px] font-medium text-white/40 tracking-wide">{subtitle}</p>}
                 </div>
                 <div className="relative z-[60] flex items-center gap-2">
                     {headerContent}
@@ -76,6 +80,6 @@ export function WidgetCard({
             <CardContent className="relative z-[1] flex-1 min-h-0 p-5 pt-0">
                 {children}
             </CardContent>
-        </Card >
+        </Card>
     );
 }
