@@ -41,7 +41,11 @@ class OuraAutomator:
             return
 
         # Ensure browser is installed
-        await self._ensure_browser_installed()
+        try:
+            await self._ensure_browser_installed()
+        except Exception as e:
+            logger.error(f"Browser installation check failed: {e}", exc_info=True)
+            raise Exception(f"Failed to ensure Playwright browser is installed: {e}")
 
         # If headless not provided, read from config
         if headless is None:
@@ -63,7 +67,11 @@ class OuraAutomator:
             logger.error(f"Failed to launch browser: {e}")
             logger.info("Retrying installation...")
             await self._ensure_browser_installed(force=True)
-            self.browser = await self.playwright.chromium.launch(headless=headless, args=["--start-maximized"])
+            try:
+                self.browser = await self.playwright.chromium.launch(headless=headless, args=["--start-maximized"])
+            except Exception as e2:
+                logger.error(f"Browser launch still failed after reinstall: {e2}", exc_info=True)
+                raise Exception(f"Browser launch failed after reinstall: {e2}") from e2
         
         # Load session if exists
         state = self.storage_state_path if os.path.exists(self.storage_state_path) else None
@@ -81,10 +89,23 @@ class OuraAutomator:
     async def _ensure_browser_installed(self, force=False):
         """Checks if Chromium is installed and installs it if missing."""
         import sys
+        import glob
         
-        # Check if we suspect it's missing (simple check: is the dir empty?)
-        if not force and os.path.exists(self.browser_dir) and os.listdir(self.browser_dir):
-            return
+        # Check if the actual browser executable exists (not just marker files).
+        # Playwright creates versioned directories (e.g. chromium_headless_shell-1208)
+        # that may contain only marker files if a previous install was interrupted.
+        if not force and os.path.exists(self.browser_dir):
+            # Look for any actual browser executable in versioned subdirs
+            headless_exes = glob.glob(
+                os.path.join(self.browser_dir, "chromium_headless_shell-*",
+                             "chrome-headless-shell-win64", "chrome-headless-shell.exe")
+            )
+            chrome_exes = glob.glob(
+                os.path.join(self.browser_dir, "chromium-*",
+                             "chrome-win64", "chrome.exe")
+            )
+            if headless_exes or chrome_exes:
+                return
 
         logger.info("Installing Playwright Chromium browser...")
         config_manager.update_status("Installing dependency (Chromium)...")
@@ -122,8 +143,12 @@ class OuraAutomator:
     async def start_login(self, email: str):
         """Initiates the login process with the provided email."""
         if self._login_in_progress:
-            logger.warning("Login already in progress — ignoring duplicate request.")
-            return {"status": "otp_required", "message": "Login already in progress. Check your email for the code."}
+            logger.warning("Login already in progress — cleaning up and restarting.")
+            # If a previous attempt is in progress (e.g., it failed partway through),
+            # clean up the browser session and restart fresh so the "Send code" button
+            # is actually clicked again and a new email is dispatched.
+            await self.cleanup()
+            self._login_in_progress = False
         self._login_in_progress = True
         if not self._is_initialized:
             await self.initialize()
@@ -202,7 +227,17 @@ class OuraAutomator:
         if not self.page:
             return False
         url = (self.page.url or "").lower().rstrip('/')
-        return ("membership.ouraring.com" in url) and ("login" not in url) and ("authn" not in url)
+        # After successful OTP, Oura redirects through a chain:
+        #   moi.ouraring.com/authn/.../enter-otp
+        #   -> membership.ouraring.com/login?code=... (intermediate code exchange)
+        #   -> membership.ouraring.com/ (dashboard/home)
+        # The intermediate 'login' URL is transient; check for final dashboard state.
+        if "membership.ouraring.com" in url and "login" not in url and "authn" not in url:
+            return True
+        # Also accept moi.ouraring.com dashboard pages (sometimes used instead)
+        if "ouraring.com" in url and "login" not in url and "authn" not in url and "enter-otp" not in url:
+            return True
+        return False
 
     async def _perform_login_actions(self) -> Dict[str, str]:
         """Interacts with the login form, handling email submission and checking for OTP requirements."""
@@ -279,7 +314,15 @@ class OuraAutomator:
             # Always click Send Code to ensure Oura actually emails a code
             logger.info("Found intermediate 'Send Code' button. Clicking...")
             await intermediate_btn.click()
-            await self.page.wait_for_timeout(3000)
+            # Oura's redirect after Send Code may navigate to a new page.
+            # Update page reference and wait for navigation to complete.
+            try:
+                await self.page.wait_for_timeout(3000)
+            except Exception:
+                # Page may have been replaced during navigation; get the new page
+                if self.context and self.context.pages:
+                    self.page = self.context.pages[-1]
+                    await self.page.wait_for_load_state("networkidle", timeout=10000)
 
         # Check for OTP input visibility
         for selector in otp_selectors:
@@ -324,7 +367,8 @@ class OuraAutomator:
                 raise Exception("Could not find OTP input field")
 
             await target_frame.fill(otp_selector, otp)
-            await target_frame.dispatch_event(otp_selector, 'input')
+            # Let the page's auto-submit JS settle (Oura auto-submits on 6 digits)
+            await self.page.wait_for_timeout(1500)
 
             # Try common submit controls first; fallback to Enter
             submitted = False
@@ -348,8 +392,23 @@ class OuraAutomator:
             if not submitted:
                 await self.page.keyboard.press("Enter")
 
-            await self.page.wait_for_timeout(2000)
-            await self.page.wait_for_load_state("networkidle")
+            # Wait for the multi-step Oura redirect chain to complete.
+            # After a correct OTP, Oura goes: enter-otp -> oauth-authorize -> login (code exchange) -> dashboard.
+            await self.page.wait_for_timeout(3000)
+            try:
+                await self.page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                logger.warning("Network idle timeout after OTP — continuing with current state")
+
+            # Allow extra time for final redirect to dashboard
+            for _ in range(5):
+                if self._is_logged_in():
+                    break
+                await self.page.wait_for_timeout(1000)
+                try:
+                    await self.page.wait_for_load_state("networkidle", timeout=5000)
+                except Exception:
+                    pass
 
             # Verify success
             if self._is_logged_in():
@@ -360,7 +419,8 @@ class OuraAutomator:
                 return {"status": "success", "message": "Login successful!"}
 
             invalid_code = False
-            for err_text in ["Virheellinen koodi", "Invalid code", "incorrect code", "wrong code"]:
+            for err_text in ["Virheellinen koodi", "Invalid code", "incorrect code", "wrong code",
+                             "Incorrect or expired code", "try again"]:
                 try:
                     if await self.page.get_by_text(err_text).first.is_visible(timeout=500):
                         invalid_code = True
