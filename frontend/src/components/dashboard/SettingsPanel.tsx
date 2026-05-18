@@ -276,12 +276,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const isBusy = loading || isExporting;
 
     return (
-        <div className="w-[400px] border-l border-white/[0.06] bg-[#0a0a0c] flex flex-col h-full">
+        <div className="w-[420px] glass-panel flex flex-col h-full shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
             {/* Header */}
-            <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
+            <div className="glass-nav p-4 flex items-center justify-between">
                 <div>
                     <p className="text-[10px] uppercase tracking-widest text-white/30">Configuration</p>
-                    <h2 className="text-lg font-semibold font-['Space_Grotesk',sans-serif] text-white/90 mt-0.5">Settings</h2>
+                    <h2 className="font-serif text-xl font-semibold tracking-wide text-white/90 mt-0.5">Settings</h2>
                 </div>
                 <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06]">
                     <X className="h-4 w-4" />
@@ -293,7 +293,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 <div className="space-y-3">
                     <h3 className="text-[10px] font-medium text-white/30 uppercase tracking-widest">Connection</h3>
 
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+                    <div className="glass-card rounded-2xl p-4 space-y-3">
                         {/* Status line */}
                         <div className="flex items-center gap-2">
                             <div className={cn(
@@ -329,14 +329,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                         {/* Reassurance message when logged in */}
                         {isLoggedIn && !isExporting && !isWaitingForOtp && (
-                            <p className="text-xs text-green-600 bg-green-600/10 rounded-md px-3 py-2">
+                            <p className="text-xs text-score-green bg-score-green/10 rounded-md px-3 py-2">
                                 You're all set! Data syncs automatically every day{automation?.nextRun ? ` at ${new Date(automation.nextRun.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}. Click "Sync now" if you want fresh data immediately.
                             </p>
                         )}
 
                         {/* Error message */}
                         {isError && automation?.message && (
-                            <p className="text-xs text-red-500 bg-red-500/10 rounded-md px-3 py-2">{automation.message}</p>
+                            <p className="text-xs text-living-coral bg-living-coral/10 rounded-md px-3 py-2">{automation.message}</p>
                         )}
 
                         {/* Exporting message */}
@@ -464,7 +464,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 {/* ─── AI Advisor ─── */}
                 <div className="space-y-3">
                     <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">AI Advisor</h3>
-                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-3">
+                    <div className="glass-card rounded-2xl p-4 space-y-3">
                         <p className="text-xs text-muted-foreground">
                             The AI Advisor works with any OpenAI-compatible endpoint — <a href="https://lmstudio.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">LM Studio</a>, <a href="https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">llama.cpp server</a>, local proxies, or cloud APIs.
                         </p>
@@ -499,13 +499,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                             Save AI Settings
                         </Button>
                         <div className="text-xs text-muted-foreground bg-secondary/40 rounded-md p-3 space-y-1">
-                            <p className="font-medium text-foreground">Quick Start — LM Studio:</p>
+                            <p className="font-medium text-foreground">Quick Start - LM Studio:</p>
                             <ol className="list-decimal list-inside space-y-1">
                                 <li>Download LM Studio from <a href="https://lmstudio.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">lmstudio.ai</a></li>
                                 <li>Load any GGUF model and start the local server</li>
                                 <li>Keep the server running, then click &quot;AI Chat&quot;</li>
                             </ol>
-                            <p className="mt-2 font-medium text-foreground">Quick Start — llama.cpp:</p>
+                            <p className="mt-2 font-medium text-foreground">Quick Start - llama.cpp:</p>
                             <ol className="list-decimal list-inside space-y-1">
                                 <li>Run: <code className="bg-background px-1 py-0.5 rounded text-[10px]">./server -m model.gguf</code></li>
                                 <li>Defaults to <code className="bg-background px-1 py-0.5 rounded text-[10px]">http://localhost:8080/v1</code></li>
@@ -519,7 +519,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 <div className="space-y-3">
                     <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Mobile App</h3>
 
-                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-4">
+                    <div className="glass-card rounded-2xl p-4 space-y-4">
                         <div className="flex items-center justify-between gap-4">
                             <Label>Enable Mobile API</Label>
                             <Switch
@@ -640,7 +640,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                 {/* Error toast */}
                 {error && !isError && (
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
+                    <div className="rounded-lg border border-living-coral/20 bg-living-coral/10 px-4 py-3 text-xs text-living-coral">
                         {error}
                     </div>
                 )}

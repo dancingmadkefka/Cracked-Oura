@@ -210,7 +210,7 @@ export function AppShell({
   const showContextRail = ['today', 'sleep', 'readiness', 'activity', 'resilience'].includes(activeView);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-oura-black text-foreground relative">
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground relative">
       {/* Atmospheric Background */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none"
@@ -218,7 +218,7 @@ export function AppShell({
           backgroundImage: `url('/images/oura-bg-${timeOfDay === 'morning' || timeOfDay === 'afternoon' ? 'day' : 'night'}.jpg')`,
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-oura-black/60 via-oura-black/80 to-oura-black pointer-events-none" />
+      <div className="absolute inset-0 app-atmosphere-overlay pointer-events-none" />
 
       {/* Sidebar */}
       <div className="relative z-10">
