@@ -43,8 +43,8 @@ export function ContextRail({ battery, batteryTimestamp, timeline, onAiPrompt, c
           )} />
         </div>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-oura-black to-neutral-800 border-2 border-white/10 flex items-center justify-center flex-shrink-0">
-            <svg className="w-8 h-8 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <div className="oura-ring-orb w-16 h-16 rounded-full border-2 flex items-center justify-center flex-shrink-0">
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="9" />
               <circle cx="12" cy="12" r="5" />
             </svg>
