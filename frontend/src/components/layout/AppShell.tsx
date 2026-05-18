@@ -13,8 +13,10 @@ import { TrendsView } from '@/components/views/TrendsView';
 import { JournalView } from '@/components/views/JournalView';
 import { AIAnalystView } from '@/components/views/AIAnalystView';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
+import { Button } from '@/components/ui/button';
 import { buildDaySummary } from '@/lib/day-summary';
 import { format } from 'date-fns';
+import { Check, Edit2, Plus } from 'lucide-react';
 import type { Message } from '@/hooks/useChat';
 import type { AppView } from '@/types/app-view';
 import type { Dashboard, WidgetInstance } from '@/types';
@@ -36,6 +38,7 @@ interface AppShellProps {
   widgets: WidgetInstance[];
   layout: any[];
   isEditing: boolean;
+  setIsEditing: (isEditing: boolean) => void;
   startEditingWidget: (widget?: WidgetInstance) => void;
   deleteWidget: (id: string) => void;
   updateEditingWidget: (w: WidgetInstance) => void;
@@ -69,6 +72,7 @@ export function AppShell({
   widgets,
   layout,
   isEditing,
+  setIsEditing,
   startEditingWidget,
   deleteWidget,
   updateEditingWidget,
@@ -98,6 +102,58 @@ export function AppShell({
     updateActiveDashboard({ layout: newLayout });
   };
 
+  const activeDashboardName = dashboards.find(d => d.id === activeDashboardId)?.name ?? 'Dashboard';
+
+  const renderDashboardView = () => (
+    <div className="p-6 md:p-8 space-y-4 max-w-7xl mx-auto animate-fadeIn">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl text-white tracking-wide">{activeDashboardName}</h1>
+          <p className="text-sm text-white/40 mt-1">Custom dashboard workspace</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => startEditingWidget()}
+              className="gap-2 border-white/[0.08] bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Widget
+            </Button>
+          )}
+          <Button
+            variant={isEditing ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (isEditing && activePanel === 'editor') {
+                setActivePanel('none');
+              }
+              setIsEditing(!isEditing);
+            }}
+            className="gap-2 border-white/[0.08] bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+          >
+            {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit2 className="h-3.5 w-3.5" />}
+            {isEditing ? 'Done Editing' : 'Edit Layout'}
+          </Button>
+        </div>
+      </div>
+
+      <DashboardGrid
+        widgets={widgets}
+        layout={layout}
+        isEditing={isEditing}
+        onLayoutChange={handleLayoutChange}
+        onEditWidget={startEditingWidget}
+        onDeleteWidget={deleteWidget}
+        onWidgetChange={updateEditingWidget}
+        data={data}
+        selectedDate={selectedDate}
+      />
+    </div>
+  );
+
   const renderView = () => {
     switch (activeView) {
       case 'today':
@@ -116,19 +172,7 @@ export function AppShell({
         return <JournalView />;
       case 'dashboards':
       case 'dashboard-manager':
-        return (
-          <DashboardGrid
-            widgets={widgets}
-            layout={layout}
-            isEditing={isEditing}
-            onLayoutChange={handleLayoutChange}
-            onEditWidget={startEditingWidget}
-            onDeleteWidget={deleteWidget}
-            onWidgetChange={updateEditingWidget}
-            data={data}
-            selectedDate={selectedDate}
-          />
-        );
+        return renderDashboardView();
       case 'ai':
         return (
           <AIAnalystView

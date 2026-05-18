@@ -15,6 +15,7 @@ function DashboardApp() {
     layout,
     updateActiveDashboard,
     isEditing,
+    setIsEditing,
     activePanel,
     setActivePanel,
     activeView,
@@ -56,6 +57,7 @@ function DashboardApp() {
       widgets={widgets}
       layout={layout}
       isEditing={isEditing}
+      setIsEditing={setIsEditing}
       startEditingWidget={startEditingWidget}
       deleteWidget={deleteWidget}
       updateEditingWidget={updateEditingWidget}

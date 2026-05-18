@@ -8,7 +8,7 @@ const METRIC_PRESETS = [
   { id: 'sleep.score', label: 'Sleep Score', color: '#A2D3E8' },
   { id: 'readiness.score', label: 'Readiness Score', color: '#4ECDC4' },
   { id: 'activity.score', label: 'Activity Score', color: '#FFD166' },
-  { id: 'sleep.total_sleep_duration', label: 'Sleep Duration', color: '#60a5fa' },
+  { id: 'sleep_session.total_sleep_duration', label: 'Sleep Duration', color: '#60a5fa' },
   { id: 'activity.steps', label: 'Steps', color: '#38bdf8' },
   { id: 'activity.total_calories', label: 'Calories', color: '#f87171' },
 ];
