@@ -1,17 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { useEffect } from 'react';
 
 const METRIC_PRESETS = [
-  { id: 'sleep.score', label: 'Sleep Score', color: '#60a5fa' },
-  { id: 'readiness.score', label: 'Readiness Score', color: '#34d399' },
-  { id: 'activity.score', label: 'Activity Score', color: '#f59e0b' },
-  { id: 'hrv', label: 'HRV', color: '#a78bfa' },
-  { id: 'resting_heart_rate', label: 'Resting HR', color: '#f87171' },
-  { id: 'steps', label: 'Steps', color: '#38bdf8' },
+  { id: 'sleep.score', label: 'Sleep Score', color: '#A2D3E8' },
+  { id: 'readiness.score', label: 'Readiness Score', color: '#4ECDC4' },
+  { id: 'activity.score', label: 'Activity Score', color: '#FFD166' },
+  { id: 'sleep.total_sleep_duration', label: 'Sleep Duration', color: '#60a5fa' },
+  { id: 'activity.steps', label: 'Steps', color: '#38bdf8' },
+  { id: 'activity.total_calories', label: 'Calories', color: '#f87171' },
 ];
 
 const RANGES = [
@@ -59,9 +58,9 @@ export function TrendsView() {
     : '';
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto animate-fadeIn">
       <div>
-        <h1 className="font-['Space_Grotesk',sans-serif] text-2xl font-medium text-white/95">Trends</h1>
+        <h1 className="font-serif text-3xl text-white tracking-wide">Trends</h1>
         <p className="text-sm text-white/40 mt-1">Historical data explorer</p>
       </div>
 
@@ -75,7 +74,7 @@ export function TrendsView() {
             className={cn(
               'rounded-lg text-xs',
               selectedMetric.id === m.id
-                ? 'bg-white/[0.08] text-white/90'
+                ? 'glass-tab text-white'
                 : 'text-white/40 hover:text-white/70'
             )}
             onClick={() => setSelectedMetric(m)}
@@ -96,7 +95,7 @@ export function TrendsView() {
             className={cn(
               'rounded-lg text-xs h-7',
               range.days === r.days
-                ? 'bg-white/[0.08] text-white/90'
+                ? 'glass-tab text-white'
                 : 'text-white/40 hover:text-white/70'
             )}
             onClick={() => setRange(r)}
@@ -107,7 +106,7 @@ export function TrendsView() {
       </div>
 
       {/* Chart Area */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 min-h-[240px]">
+      <div className="glass-card rounded-2xl p-5 min-h-[240px]">
         {loading ? (
           <div className="flex items-center justify-center h-[200px] text-white/30 text-sm">Loading...</div>
         ) : data.length > 0 ? (

@@ -7,4 +7,5 @@ export type AppView =
   | 'trends'
   | 'journal'
   | 'dashboards'
-  | 'ai';
+  | 'ai'
+  | 'dashboard-manager';

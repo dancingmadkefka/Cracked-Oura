@@ -1,7 +1,7 @@
 import { DashboardProvider, useDashboard } from "@/contexts/DashboardContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { useChat } from "@/hooks/useChat";
-import type { AppView } from '@/types/app-view';
+import type { AppView } from "@/types/app-view";
 
 function DashboardApp() {
   const {
@@ -13,6 +13,7 @@ function DashboardApp() {
     renameDashboard,
     widgets,
     layout,
+    updateActiveDashboard,
     isEditing,
     activePanel,
     setActivePanel,
@@ -55,12 +56,13 @@ function DashboardApp() {
       widgets={widgets}
       layout={layout}
       isEditing={isEditing}
-      startEditingWidget={() => startEditingWidget()}
+      startEditingWidget={startEditingWidget}
       deleteWidget={deleteWidget}
       updateEditingWidget={updateEditingWidget}
       editingWidget={editingWidget}
       saveEditingWidget={saveEditingWidget}
       cancelEditingWidget={cancelEditingWidget}
+      updateActiveDashboard={updateActiveDashboard}
 
       activePanel={activePanel}
       setActivePanel={(p) => setActivePanel(p as 'none' | 'settings' | 'editor')}

@@ -73,6 +73,9 @@ export function SleepView() {
       {session.avgHr && (
         <MetricPill label="Avg Heart Rate" value={session.avgHr} unit="bpm" icon={<Heart className="h-3.5 w-3.5" />} />
       )}
+      {session.avgHrv && (
+        <MetricPill label="Avg HRV" value={session.avgHrv} icon={<Zap className="h-3.5 w-3.5" />} />
+      )}
 
       {raw?.sleep?.breathing_disturbance_index && (
         <MetricPill

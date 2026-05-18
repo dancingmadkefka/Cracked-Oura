@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { HealthSidebar } from './HealthSidebar';
-import type { AppView } from '@/types/app-view';
 import { TopDateBar } from './TopDateBar';
 import { ContextRail } from './ContextRail';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
@@ -17,6 +16,8 @@ import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { buildDaySummary } from '@/lib/day-summary';
 import { format } from 'date-fns';
 import type { Message } from '@/hooks/useChat';
+import type { AppView } from '@/types/app-view';
+import type { Dashboard, WidgetInstance } from '@/types';
 
 interface AppShellProps {
   activeView: AppView;
@@ -26,23 +27,24 @@ interface AppShellProps {
   syncStatus: { status: string; lastRun: string | null } | null;
   data: any;
 
-  dashboards: any[];
+  dashboards: Dashboard[];
   activeDashboardId: string;
   onDashboardSelect: (id: string) => void;
   onDashboardAdd: () => void;
   onDashboardDelete: (id: string) => void;
   onDashboardRename: (id: string, name: string) => void;
-  widgets: any[];
+  widgets: WidgetInstance[];
   layout: any[];
   isEditing: boolean;
-  startEditingWidget: () => void;
+  startEditingWidget: (widget?: WidgetInstance) => void;
   deleteWidget: (id: string) => void;
-  updateEditingWidget: (w: any) => void;
-  editingWidget: any;
+  updateEditingWidget: (w: WidgetInstance) => void;
+  editingWidget: WidgetInstance | undefined;
   saveEditingWidget: () => void;
   cancelEditingWidget: () => void;
   activePanel: string;
   setActivePanel: (p: 'none' | 'settings' | 'editor') => void;
+  updateActiveDashboard: (updates: Partial<Dashboard>) => void;
 
   messages: Message[];
   isLoading: boolean;
@@ -58,6 +60,12 @@ export function AppShell({
   onDateChange,
   syncStatus,
   data,
+  dashboards,
+  activeDashboardId,
+  onDashboardSelect,
+  onDashboardAdd,
+  onDashboardDelete,
+  onDashboardRename,
   widgets,
   layout,
   isEditing,
@@ -69,6 +77,7 @@ export function AppShell({
   cancelEditingWidget,
   activePanel,
   setActivePanel,
+  updateActiveDashboard,
   messages,
   isLoading,
   sendMessage,
@@ -83,6 +92,10 @@ export function AppShell({
   const handleAiPrompt = (prompt: string) => {
     onViewChange('ai');
     sendMessage(prompt);
+  };
+
+  const handleLayoutChange = (newLayout: any[]) => {
+    updateActiveDashboard({ layout: newLayout });
   };
 
   const renderView = () => {
@@ -102,12 +115,13 @@ export function AppShell({
       case 'journal':
         return <JournalView />;
       case 'dashboards':
+      case 'dashboard-manager':
         return (
           <DashboardGrid
             widgets={widgets}
             layout={layout}
             isEditing={isEditing}
-            onLayoutChange={() => {}}
+            onLayoutChange={handleLayoutChange}
             onEditWidget={startEditingWidget}
             onDeleteWidget={deleteWidget}
             onWidgetChange={updateEditingWidget}
@@ -153,6 +167,12 @@ export function AppShell({
           syncStatus={syncStatus}
           onSync={() => {}}
           isSyncing={false}
+          dashboards={dashboards}
+          activeDashboardId={activeDashboardId}
+          onDashboardSelect={onDashboardSelect}
+          onDashboardAdd={onDashboardAdd}
+          onDashboardDelete={onDashboardDelete}
+          onDashboardRename={onDashboardRename}
         />
       </div>
 
@@ -176,9 +196,9 @@ export function AppShell({
             <ContextRail
               summary={summary}
               battery={summary.battery}
+              batteryTimestamp={summary.batteryTimestamp}
               timeline={summary.timeline}
               onAiPrompt={handleAiPrompt}
-              timeOfDay={timeOfDay}
             />
           )}
         </div>

@@ -27,11 +27,13 @@ export interface DaySummary {
     lightMinutes: number | null;
     awakeMinutes: number | null;
     avgHr: number | null;
+    avgHrv: number | null;
   };
   timeline: TimelineItem[];
   tags: string[];
   insight: string;
   battery: number | null;
+  batteryTimestamp: string | null;
 }
 
 export interface TimelineItem {
@@ -113,19 +115,33 @@ export function buildDaySummary(raw: any, dateString: string): DaySummary {
     ? Math.round(primarySession.awake_time / 60)
     : null;
 
+  // Use correct field names from backend schema
+  const avgHr = primarySession?.average_heart_rate ?? null;
+  const avgHrv = primarySession?.average_hrv ?? null;
+
   const resilienceLevel = raw?.resilience?.[0]?.level ?? raw?.resilience?.level ?? null;
+
+  // Handle ring_battery as array (backend returns List[RingBatteryResponse])
+  const batterySamples = Array.isArray(raw?.ring_battery) ? raw.ring_battery : [];
+  const latestBattery = batterySamples.length > 0 ? batterySamples[batterySamples.length - 1] : null;
+  const battery = latestBattery?.level ?? null;
+  const batteryTimestamp = latestBattery?.timestamp ?? null;
 
   const tags: string[] = [];
   if (raw?.tags && Array.isArray(raw.tags)) {
     raw.tags.forEach((t: any) => {
-      if (t?.tag && !tags.includes(t.tag)) tags.push(t.tag);
+      if (t?.tag_type_code && !tags.includes(t.tag_type_code)) tags.push(t.tag_type_code);
+      if (t?.comment && !tags.includes(t.comment)) tags.push(t.comment);
     });
   }
 
   const timeline: TimelineItem[] = [];
 
   if (primarySession?.start_time) {
-    const start = new Date(primarySession.start_time.replace(' ', 'T'));
+    const startTime = typeof primarySession.start_time === 'string'
+      ? primarySession.start_time.replace(' ', 'T')
+      : primarySession.start_time;
+    const start = new Date(startTime);
     timeline.push({
       type: 'sleep',
       time: format(start, 'HH:mm'),
@@ -137,26 +153,33 @@ export function buildDaySummary(raw: any, dateString: string): DaySummary {
   if (raw?.workouts && Array.isArray(raw.workouts)) {
     raw.workouts.forEach((w: any) => {
       if (w?.start_time) {
-        const start = new Date(w.start_time.replace(' ', 'T'));
+        const startTime = typeof w.start_time === 'string'
+          ? w.start_time.replace(' ', 'T')
+          : w.start_time;
+        const start = new Date(startTime);
         timeline.push({
           type: 'workout',
           time: format(start, 'HH:mm'),
-          label: w.type || 'Workout',
+          label: w.activity || w.type || 'Workout',
           detail: w.intensity ? `${w.intensity}` : undefined,
         });
       }
     });
   }
 
-  if (raw?.ring_battery != null) {
-    const batt = raw.ring_battery;
+  // Add battery samples to timeline
+  batterySamples.forEach((b: any) => {
+    const ts = typeof b.timestamp === 'string'
+      ? b.timestamp.replace(' ', 'T')
+      : b.timestamp;
+    const time = ts ? format(new Date(ts), 'HH:mm') : '--:--';
     timeline.push({
       type: 'battery',
-      time: batt.timestamp ? format(new Date(batt.timestamp.replace(' ', 'T')), 'HH:mm') : '--:--',
+      time,
       label: 'Ring Battery',
-      detail: `${Math.round(batt.value ?? batt.percentage ?? 0)}%`,
+      detail: `${b.level}%`,
     });
-  }
+  });
 
   const summary: DaySummary = {
     date: dateString,
@@ -170,9 +193,9 @@ export function buildDaySummary(raw: any, dateString: string): DaySummary {
       steps: raw?.activity?.steps ?? null,
       totalSleepMinutes: totalSleepMin,
       totalSleepFormatted: formatMinutes(totalSleepMin),
-      restingHr: raw?.readiness?.resting_heart_rate ?? raw?.sleep_session?.avg_heart_rate ?? null,
-      hrv: raw?.readiness?.hrv_balance ?? raw?.readiness?.hrv ?? null,
-      calories: raw?.activity?.calories_total ?? raw?.activity?.total_calories ?? null,
+      restingHr: avgHr,
+      hrv: avgHrv,
+      calories: raw?.activity?.total_calories ?? raw?.activity?.calories_total ?? null,
       resilience: resilienceLevel,
     },
     primarySleepSession: {
@@ -184,11 +207,13 @@ export function buildDaySummary(raw: any, dateString: string): DaySummary {
       remMinutes: remMin,
       lightMinutes: lightMin,
       awakeMinutes: awakeMin,
-      avgHr: primarySession?.avg_heart_rate ?? primarySession?.average_hr ?? null,
+      avgHr,
+      avgHrv,
     },
     timeline,
     tags,
-    battery: raw?.ring_battery?.value ?? raw?.ring_battery?.percentage ?? null,
+    battery,
+    batteryTimestamp,
     insight: '',
   };
 

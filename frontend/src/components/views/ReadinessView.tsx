@@ -30,8 +30,8 @@ export function ReadinessView() {
         <MetricPill label="Resting HR" value={summary.metrics.restingHr} unit="bpm" icon={<Heart className="h-3.5 w-3.5" />} />
         <MetricPill label="HRV" value={summary.metrics.hrv} icon={<Zap className="h-3.5 w-3.5" />} />
         <MetricPill
-          label="Body Temp"
-          value={raw?.readiness?.body_temperature != null ? `${raw.readiness.body_temperature}°C` : null}
+          label="Temp Deviation"
+          value={raw?.readiness?.temperature_deviation != null ? `${raw.readiness.temperature_deviation}°C` : null}
           icon={<Thermometer className="h-3.5 w-3.5" />}
         />
         <MetricPill label="Recovery" value={raw?.resilience?.[0]?.sleep_recovery != null ? `${Math.round(raw.resilience[0].sleep_recovery)}%` : null} icon={<Brain className="h-3.5 w-3.5" />} />

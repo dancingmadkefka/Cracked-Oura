@@ -14,10 +14,22 @@ import {
   BatteryMedium,
   RefreshCw,
   MoonStar,
+  Plus,
+  MoreVertical,
+  Trash2,
+  Edit2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { AppView } from '@/types/app-view';
+import type { Dashboard } from '@/types';
 
 interface NavItem {
   id: AppView;
@@ -48,6 +60,14 @@ interface HealthSidebarProps {
   syncStatus?: { status: string; lastRun: string | null } | null;
   onSync?: () => void;
   isSyncing?: boolean;
+
+  // Dashboard management
+  dashboards?: Dashboard[];
+  activeDashboardId?: string;
+  onDashboardSelect?: (id: string) => void;
+  onDashboardAdd?: () => void;
+  onDashboardDelete?: (id: string) => void;
+  onDashboardRename?: (id: string, name: string) => void;
 }
 
 export function HealthSidebar({
@@ -60,8 +80,30 @@ export function HealthSidebar({
   syncStatus,
   onSync,
   isSyncing = false,
+  dashboards = [],
+  activeDashboardId,
+  onDashboardSelect,
+  onDashboardAdd,
+  onDashboardDelete,
+  onDashboardRename,
 }: HealthSidebarProps) {
   const [restMode, setRestMode] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const handleStartEdit = (dashboard: Dashboard) => {
+    setEditingId(dashboard.id);
+    setEditName(dashboard.name);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingId && editName.trim() && onDashboardRename) {
+      onDashboardRename(editingId, editName.trim());
+    }
+    setEditingId(null);
+  };
+
+  const showDashboards = dashboards.length > 0 && onDashboardSelect;
 
   return (
     <div className={cn(
@@ -146,6 +188,79 @@ export function HealthSidebar({
               </button>
             );
           })}
+
+          {/* Custom Dashboards Section */}
+          {showDashboards && (
+            <div className="mt-4">
+              <p className="px-3 text-[10px] font-semibold tracking-widest text-white/25 uppercase mb-1.5">
+                Dashboards
+              </p>
+              <div className="space-y-0.5">
+                {dashboards.map((dashboard) => (
+                  <div key={dashboard.id} className="group relative flex items-center">
+                    {editingId === dashboard.id ? (
+                      <div className="flex items-center w-full px-2">
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onBlur={handleSaveEdit}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                          autoFocus
+                          className="h-7 text-xs bg-white/5 border-white/10 text-white rounded-md"
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all',
+                          activeDashboardId === dashboard.id
+                            ? 'glass-tab text-white shadow-sm'
+                            : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+                        )}
+                        onClick={() => onDashboardSelect?.(dashboard.id)}
+                      >
+                        <LayoutDashboard className="w-4 h-4 shrink-0" />
+                        <span className="truncate flex-1 text-left">{dashboard.name}</span>
+                      </button>
+                    )}
+
+                    {!editingId && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="absolute right-1 h-7 w-7 rounded-lg text-white/30 hover:bg-white/8 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleStartEdit(dashboard)}>
+                            <Edit2 className="h-3.5 w-3.5 mr-2" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDashboardDelete?.(dashboard.id)}
+                            disabled={dashboards.length <= 1}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                ))}
+                {onDashboardAdd && (
+                  <button
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-white/30 hover:text-white/65 hover:bg-white/[0.03] transition-all"
+                    onClick={onDashboardAdd}
+                  >
+                    <Plus className="w-4 h-4 shrink-0" />
+                    <span>Add Dashboard</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </ScrollArea>
 
@@ -200,12 +315,14 @@ export function HealthSidebar({
           )}
         </div>
 
+        {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
             className="h-8 w-full rounded-lg text-white/30 hover:bg-white/[0.04] hover:text-white/60 flex items-center justify-center cursor-pointer"
           >
             {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
           </button>
+        )}
       </div>
     </div>
   );

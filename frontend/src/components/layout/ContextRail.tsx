@@ -1,14 +1,15 @@
 import { BatteryMedium, Bluetooth, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 import type { TimelineItem } from '@/lib/day-summary';
 
 interface ContextRailProps {
   summary: any;
   battery: number | null;
+  batteryTimestamp: string | null;
   timeline: TimelineItem[];
   onAiPrompt?: (prompt: string) => void;
   className?: string;
-  timeOfDay?: 'morning' | 'afternoon' | 'evening';
 }
 
 const AI_PROMPTS = [
@@ -26,7 +27,7 @@ const timelineColors: Record<string, string> = {
   tag: '#FFD166',
 };
 
-export function ContextRail({ battery, timeline, onAiPrompt, className }: ContextRailProps) {
+export function ContextRail({ battery, batteryTimestamp, timeline, onAiPrompt, className }: ContextRailProps) {
   return (
     <aside className={cn(
       'w-[300px] flex-shrink-0 glass-panel p-4 space-y-4 overflow-y-auto hidden xl:block',
@@ -54,7 +55,11 @@ export function ContextRail({ battery, timeline, onAiPrompt, className }: Contex
             <div className="flex items-center gap-1.5 mt-1.5">
               <BatteryMedium className="w-3 h-3 text-score-green" />
               <span className="text-xs text-score-green font-medium">{battery != null ? Math.round(battery) : '--'}%</span>
-              <span className="text-[10px] text-white/25 ml-1">~3 days left</span>
+              {batteryTimestamp && (
+                <span className="text-[10px] text-white/25 ml-1">
+                  {format(new Date(batteryTimestamp.replace(' ', 'T')), 'HH:mm')}
+                </span>
+              )}
             </div>
           </div>
         </div>
