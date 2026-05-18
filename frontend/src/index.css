@@ -70,7 +70,7 @@
     --ring: 213 95% 68%;
     --app-bg: #151619;
     --app-bg-soft: #0d0e11;
-    --app-overlay: linear-gradient(180deg, rgba(21,22,25,0.6), rgba(21,22,25,0.8) 48%, #151619 100%);
+    --app-overlay: linear-gradient(180deg, rgba(21,22,25,0.6), rgba(21,22,25,0.4) 48%, rgba(21,22,25,0.8) 100%);
     --glass-card-bg: rgba(21, 22, 25, 0.55);
     --glass-nav-bg: rgba(21, 22, 25, 0.65);
     --glass-tab-bg: rgba(255, 255, 255, 0.06);

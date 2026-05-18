@@ -213,9 +213,9 @@ export function AppShell({
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground relative">
       {/* Atmospheric Background */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fade pointer-events-none"
         style={{
-          backgroundImage: `url('/images/oura-bg-${timeOfDay === 'morning' || timeOfDay === 'afternoon' ? 'day' : 'night'}.jpg')`,
+          backgroundImage: `url('./images/oura-bg-${timeOfDay === 'morning' || timeOfDay === 'afternoon' ? 'day' : 'night'}.jpg')`,
         }}
       />
       <div className="absolute inset-0 app-atmosphere-overlay pointer-events-none" />
