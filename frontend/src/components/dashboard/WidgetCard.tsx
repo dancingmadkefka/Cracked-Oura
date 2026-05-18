@@ -26,7 +26,7 @@ export function WidgetCard({
 }: WidgetCardProps) {
     return (
         <Card className={cn(
-            "group relative flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl shadow-lg transition-colors hover:bg-white/[0.04]",
+            "group relative flex h-full flex-col overflow-hidden rounded-2xl glass-card transition-colors hover:bg-white/[0.07]",
             isEditing && "ring-1 ring-white/[0.08]",
             className
         )}>

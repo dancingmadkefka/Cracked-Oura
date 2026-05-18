@@ -27,19 +27,19 @@ export function SleepView() {
   const totalStageMinutes = stages.reduce((sum, s) => sum + s.minutes, 0);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto animate-fadeIn">
       <div>
-        <h1 className="font-['Space_Grotesk',sans-serif] text-2xl font-medium text-white/95">Sleep</h1>
+        <h1 className="font-serif text-3xl text-white tracking-wide">Sleep</h1>
         <p className="text-sm text-white/40 mt-1">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
       <div className="flex items-center justify-center py-4">
-        <ScoreRing score={summary.scores.sleep} label="Sleep Score" color="#60a5fa" size={140} strokeWidth={10} />
+        <ScoreRing score={summary.scores.sleep} label="Sleep Score" color="#A2D3E8" size={140} strokeWidth={10} />
       </div>
 
       {/* Sleep Stages Bar */}
       {stages.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="glass-card rounded-2xl p-5">
           <p className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Sleep Stages</p>
           <div className="flex h-4 rounded-full overflow-hidden gap-0.5 mb-3">
             {stages.map((s, i) => (
@@ -83,13 +83,13 @@ export function SleepView() {
       )}
 
       {/* Timeline */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className="glass-card rounded-2xl p-5">
         <p className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Sleep Timeline</p>
         <TimelineList items={summary.timeline.filter(t => t.type === 'sleep')} />
       </div>
 
       {!session.durationMinutes && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center">
+        <div className="glass-card rounded-2xl p-6 text-center">
           <p className="text-sm text-white/40">No sleep data for this date</p>
         </div>
       )}

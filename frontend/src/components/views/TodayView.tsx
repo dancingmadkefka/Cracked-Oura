@@ -1,19 +1,38 @@
+import { useEffect, useState } from 'react';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { buildDaySummary } from '@/lib/day-summary';
-import { ScoreRing } from '@/components/health/ScoreRing';
 import { MetricPill } from '@/components/health/MetricPill';
-import { DailyInsightCard } from '@/components/health/DailyInsightCard';
 import { MiniTrendStrip } from '@/components/health/MiniTrendStrip';
-import { Footprints, Moon, Heart, Flame, Zap, Tag, Shield } from 'lucide-react';
+import { HeartPulse, Moon, Flame, Sparkles, ArrowUpRight, ChevronRight, Footprints, Heart, Zap, Tag } from 'lucide-react';
 import { format } from 'date-fns';
-import type { AppView } from '@/components/layout/HealthSidebar';
+import type { AppView } from '@/types/app-view';
 
 interface TodayViewProps {
   onNavigate: (view: AppView) => void;
+  timeOfDay: 'morning' | 'afternoon' | 'evening';
 }
 
-export function TodayView({ onNavigate }: TodayViewProps) {
+function getScoreColor(score: number, type: 'readiness' | 'sleep' | 'activity'): string {
+  if (score >= 85) return type === 'readiness' ? '#4ECDC4' : type === 'sleep' ? '#A2D3E8' : '#FFD166';
+  if (score >= 70) return '#FFD166';
+  return '#FC6558';
+}
+
+function getScoreLabel(score: number): string {
+  if (score >= 85) return 'Optimal';
+  if (score >= 70) return 'Good';
+  return 'Pay Attention';
+}
+
+export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
   const { data, isDataLoading, selectedDate } = useDashboard();
+  const [animateIn, setAnimateIn] = useState(false);
+
+  useEffect(() => {
+    setAnimateIn(false);
+    const timer = setTimeout(() => setAnimateIn(true), 50);
+    return () => clearTimeout(timer);
+  }, [selectedDate]);
 
   if (isDataLoading) {
     return (
@@ -24,48 +43,104 @@ export function TodayView({ onNavigate }: TodayViewProps) {
   }
 
   const summary = buildDaySummary(data, format(selectedDate, 'yyyy-MM-dd'));
+  const greeting = timeOfDay === 'morning' ? 'Good morning' : timeOfDay === 'afternoon' ? 'Good afternoon' : 'Good evening';
+
+  const scores = [
+    {
+      id: 'readiness' as const,
+      title: 'Readiness',
+      score: summary.scores.readiness,
+      icon: HeartPulse,
+      desc: summary.metrics.restingHr ? `${summary.metrics.restingHr} bpm resting HR` : 'Resting HR & HRV balance',
+      metric: summary.metrics.hrv ? `HRV: ${summary.metrics.hrv}` : '',
+    },
+    {
+      id: 'sleep' as const,
+      title: 'Sleep',
+      score: summary.scores.sleep,
+      icon: Moon,
+      desc: summary.metrics.totalSleepFormatted ? `${summary.metrics.totalSleepFormatted} total sleep time` : 'Sleep duration',
+      metric: '',
+    },
+    {
+      id: 'activity' as const,
+      title: 'Activity',
+      score: summary.scores.activity,
+      icon: Flame,
+      desc: summary.metrics.calories ? `${summary.metrics.calories.toLocaleString()} kcal total` : 'Daily activity',
+      metric: summary.metrics.steps ? `${summary.metrics.steps.toLocaleString()} steps` : '',
+    },
+  ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Greeting */}
-      <div>
-        <h1 className="font-['Space_Grotesk',sans-serif] text-3xl font-medium tracking-tight text-white/95">
-          {summary.greeting}
-        </h1>
-        <p className="text-sm text-white/40 mt-1">
-          {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-        </p>
+    <div className={`p-6 md:p-8 space-y-6 max-w-7xl mx-auto ${animateIn ? 'animate-fadeIn' : 'opacity-0'}`}>
+      {/* Atmospheric Greeting Banner */}
+      <div className="relative overflow-hidden rounded-3xl glass-card p-8 shadow-2xl">
+        <div className="relative z-10 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-white/[0.06] border border-white/[0.08] px-3 py-1 rounded-full text-xs text-enso-blue font-medium backdrop-blur-sm">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Daily Health Summary</span>
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight tracking-wide">
+            {greeting}, <span className="text-enso-blue">User</span>
+          </h2>
+          <p className="text-sm text-white/50 leading-relaxed max-w-2xl">
+            {timeOfDay === 'morning'
+              ? 'Your readiness is optimal today. A great day to be active.'
+              : timeOfDay === 'afternoon'
+              ? 'Your body is in a restored state. Steady energy levels throughout the day.'
+              : 'Time to wind down. Your body is preparing for rest.'}
+          </p>
+          <div className="flex flex-wrap items-center gap-4 pt-2 text-sm text-white/40">
+            {summary.metrics.resilience && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-score-green" />
+                <span>Resilience: <strong className="text-white/70">{summary.metrics.resilience}</strong></span>
+              </div>
+            )}
+            {summary.scores.sleep != null && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-enso-blue" />
+                <span>Sleep: <strong className="text-white/70">{summary.scores.sleep}</strong></span>
+              </div>
+            )}
+            {summary.metrics.steps != null && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-score-yellow" />
+                <span>Steps: <strong className="text-white/70">{summary.metrics.steps.toLocaleString()}</strong></span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Score Rings */}
-      <div className="flex items-center justify-center gap-6 md:gap-8 py-4">
-        <ScoreRing
-          score={summary.scores.sleep}
-          label="Sleep"
-          color="#60a5fa"
-          size={100}
-          onClick={() => onNavigate('sleep')}
-        />
-        <ScoreRing
-          score={summary.scores.readiness}
-          label="Readiness"
-          color="#34d399"
-          size={100}
-          onClick={() => onNavigate('readiness')}
-        />
-        <ScoreRing
-          score={summary.scores.activity}
-          label="Activity"
-          color="#f59e0b"
-          size={100}
-          onClick={() => onNavigate('activity')}
-        />
+      {/* Three Core Score Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {scores.map((s) => {
+          const Icon = s.icon;
+          const strokeColor = getScoreColor(s.score ?? 0, s.id);
+          const radius = 44;
+          const circumference = 2 * Math.PI * radius;
+
+          return (
+            <ScoreRingCard
+              key={s.id}
+              icon={Icon}
+              title={s.title}
+              score={s.score}
+              strokeColor={strokeColor}
+              label={s.score != null ? getScoreLabel(s.score) : '--'}
+              desc={s.desc}
+              metric={s.metric}
+              onClick={() => onNavigate(s.id === 'readiness' ? 'readiness' : s.id === 'sleep' ? 'sleep' : 'activity')}
+              circumference={circumference}
+              radius={radius}
+            />
+          );
+        })}
       </div>
 
-      {/* Insight */}
-      <DailyInsightCard insight={summary.insight} />
-
-      {/* Quick Metrics */}
+      {/* Quick Metrics Row */}
       <div className="flex flex-wrap gap-2">
         <MetricPill
           label="Steps"
@@ -93,29 +168,22 @@ export function TodayView({ onNavigate }: TodayViewProps) {
           value={summary.metrics.calories?.toLocaleString() ?? null}
           icon={<Flame className="h-3.5 w-3.5" />}
         />
-        {summary.metrics.resilience && (
-          <MetricPill
-            label="Resilience"
-            value={summary.metrics.resilience}
-            icon={<Shield className="h-3.5 w-3.5" />}
-          />
-        )}
       </div>
 
       {/* Tags */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-        <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2 flex items-center gap-1.5">
-          <Tag className="h-3 w-3" />
-          Tags
-        </p>
+      <div className="rounded-xl glass-card p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Tag className="h-4 w-4 text-white/40" />
+          <p className="text-[10px] uppercase tracking-widest text-white/30">Tags</p>
+        </div>
         {summary.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {summary.tags.map((tag, i) => (
+          <div className="flex flex-wrap gap-2">
+            {summary.tags.map((tag: string, i: number) => (
               <span
                 key={i}
-                className="px-2 py-0.5 rounded-full bg-white/[0.06] text-xs text-white/60"
+                className="text-xs bg-white/[0.06] text-white/60 px-2.5 py-1 rounded-md border border-white/[0.08]"
               >
-                {tag}
+                #{tag}
               </span>
             ))}
           </div>
@@ -124,12 +192,83 @@ export function TodayView({ onNavigate }: TodayViewProps) {
         )}
       </div>
 
-      {/* Trend Strips */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+      {/* 30-Day Trends */}
+      <div className="rounded-xl glass-card p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest text-white/30">30-Day Trends</p>
-        <MiniTrendStrip metric="sleep.score" label="Sleep" color="#60a5fa" />
-        <MiniTrendStrip metric="readiness.score" label="Readiness" color="#34d399" />
-        <MiniTrendStrip metric="activity.score" label="Activity" color="#f59e0b" />
+        <MiniTrendStrip metric="sleep.score" label="Sleep" color="#A2D3E8" />
+        <MiniTrendStrip metric="readiness.score" label="Readiness" color="#4ECDC4" />
+        <MiniTrendStrip metric="activity.score" label="Activity" color="#FFD166" />
+      </div>
+    </div>
+  );
+}
+
+// Score Ring Card (concept's signature component)
+function ScoreRingCard({
+  icon: Icon, title, score, strokeColor, label, desc, metric, onClick,
+  circumference, radius,
+}: {
+  icon: React.ElementType;
+  title: string;
+  score: number | null;
+  strokeColor: string;
+  label: string;
+  desc: string;
+  metric: string;
+  onClick: () => void;
+  circumference: number;
+  radius: number;
+}) {
+  const [offset, setOffset] = useState(circumference);
+  const size = 104;
+  const normalizedScore = score ?? 0;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setOffset(circumference - (normalizedScore / 100) * circumference);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [normalizedScore, circumference]);
+
+  return (
+    <div onClick={onClick} className="glass-card rounded-2xl p-5 hover:bg-white/[0.07] transition-all cursor-pointer group flex flex-col justify-between space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-white/50 group-hover:text-white/80 transition-colors">
+          <Icon className="w-4 h-4" />
+          <span className="font-serif text-base tracking-wide">{title}</span>
+        </div>
+        <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/50 group-hover:translate-x-0.5 transition-all" />
+      </div>
+
+      <div className="flex items-center gap-5">
+        {/* Animated Score Ring */}
+        <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+          <svg width={size} height={size} className="-rotate-90">
+            <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="7" />
+            <circle
+              cx={size / 2} cy={size / 2} r={radius} fill="none"
+              stroke={strokeColor} strokeWidth="7" strokeLinecap="round"
+              strokeDasharray={circumference} strokeDashoffset={offset}
+              className="score-ring"
+              style={{ filter: `drop-shadow(0 0 10px ${strokeColor}40)` }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-serif text-2xl font-bold text-white">{score ?? '--'}</span>
+            <span className="text-[10px] uppercase tracking-widest font-medium mt-0.5" style={{ color: score != null ? strokeColor : 'rgba(255,255,255,0.3)' }}>
+              {label}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs text-white/35 leading-relaxed">{desc}</p>
+          {metric && <p className="text-[11px] text-white/50 font-medium">{metric}</p>}
+        </div>
+      </div>
+
+      <div className="flex items-center text-xs text-enso-blue font-medium group-hover:underline">
+        View Details <ArrowUpRight className="w-3 h-3 ml-1" />
       </div>
     </div>
   );

@@ -16,6 +16,10 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        serif: ['Playfair Display', 'Newsreader', 'Georgia', 'Times New Roman', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -50,6 +54,19 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        helsinki: '#2F4A73',
+        'helsinki-light': '#3D5F94',
+        'helsinki-dark': '#1E304D',
+        sandstone: '#E6DED3',
+        'sandstone-light': '#F6F3EF',
+        'oura-black': '#151619',
+        'enso-blue': '#A2D3E8',
+        'enso-blue-light': '#C7E6F2',
+        'living-coral': '#FC6558',
+        'living-coral-light': '#FD8A80',
+        'score-green': '#4ECDC4',
+        'score-yellow': '#FFD166',
+        'score-red': '#FC6558',
       },
       borderRadius: {
         lg: "var(--radius)",

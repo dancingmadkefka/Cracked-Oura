@@ -13,7 +13,7 @@ const EMPTY_DASHBOARD: Dashboard = {
     layout: []
 };
 
-import type { AppView } from '@/components/layout/HealthSidebar';
+import type { AppView } from '@/types/app-view';
 
 type PanelType = 'none' | 'chat' | 'editor' | 'settings';
 

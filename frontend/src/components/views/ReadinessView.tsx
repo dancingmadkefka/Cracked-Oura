@@ -2,7 +2,7 @@ import { useDashboard } from '@/contexts/DashboardContext';
 import { buildDaySummary } from '@/lib/day-summary';
 import { ScoreRing } from '@/components/health/ScoreRing';
 import { MetricPill } from '@/components/health/MetricPill';
-import { Brain, Heart, Zap, Thermometer } from 'lucide-react';
+import { Heart, Zap, Thermometer, Brain } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function ReadinessView() {
@@ -16,14 +16,14 @@ export function ReadinessView() {
   const raw = data;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto animate-fadeIn">
       <div>
-        <h1 className="font-['Space_Grotesk',sans-serif] text-2xl font-medium text-white/95">Readiness</h1>
+        <h1 className="font-serif text-3xl text-white tracking-wide">Readiness</h1>
         <p className="text-sm text-white/40 mt-1">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
       <div className="flex items-center justify-center py-4">
-        <ScoreRing score={summary.scores.readiness} label="Readiness Score" color="#34d399" size={140} strokeWidth={10} />
+        <ScoreRing score={summary.scores.readiness} label="Readiness Score" color="#4ECDC4" size={140} strokeWidth={10} />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -38,7 +38,7 @@ export function ReadinessView() {
       </div>
 
       {!summary.scores.readiness && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center">
+        <div className="glass-card rounded-2xl p-6 text-center">
           <p className="text-sm text-white/40">No readiness data for this date</p>
         </div>
       )}

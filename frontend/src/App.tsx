@@ -1,7 +1,7 @@
 import { DashboardProvider, useDashboard } from "@/contexts/DashboardContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { useChat } from "@/hooks/useChat";
-import type { AppView } from "@/components/layout/HealthSidebar";
+import type { AppView } from '@/types/app-view';
 
 function DashboardApp() {
   const {

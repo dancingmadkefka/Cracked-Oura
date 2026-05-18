@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { HealthSidebar, type AppView } from './HealthSidebar';
+import { HealthSidebar } from './HealthSidebar';
+import type { AppView } from '@/types/app-view';
 import { TopDateBar } from './TopDateBar';
 import { ContextRail } from './ContextRail';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
@@ -76,6 +77,8 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const summary = data ? buildDaySummary(data, format(selectedDate, 'yyyy-MM-dd')) : null;
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 
   const handleAiPrompt = (prompt: string) => {
     onViewChange('ai');
@@ -85,7 +88,7 @@ export function AppShell({
   const renderView = () => {
     switch (activeView) {
       case 'today':
-        return <TodayView onNavigate={onViewChange} />;
+        return <TodayView onNavigate={onViewChange} timeOfDay={timeOfDay} />;
       case 'sleep':
         return <SleepView />;
       case 'readiness':
@@ -122,57 +125,80 @@ export function AppShell({
           />
         );
       default:
-        return <TodayView onNavigate={onViewChange} />;
+        return <TodayView onNavigate={onViewChange} timeOfDay={timeOfDay} />;
     }
   };
 
   const showContextRail = ['today', 'sleep', 'readiness', 'activity', 'resilience'].includes(activeView);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#08080a] text-foreground">
-      <HealthSidebar
-        activeView={activeView}
-        onViewChange={onViewChange}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onSettingsClick={() => setActivePanel(activePanel === 'settings' ? 'none' : 'settings')}
-        className="hidden md:flex"
+    <div className="flex h-screen w-full overflow-hidden bg-oura-black text-foreground relative">
+      {/* Atmospheric Background */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none"
+        style={{
+          backgroundImage: `url('/images/oura-bg-${timeOfDay === 'morning' || timeOfDay === 'afternoon' ? 'day' : 'night'}.jpg')`,
+        }}
       />
+      <div className="absolute inset-0 bg-gradient-to-b from-oura-black/60 via-oura-black/80 to-oura-black pointer-events-none" />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Sidebar */}
+      <div className="relative z-10">
+        <HealthSidebar
+          activeView={activeView}
+          onViewChange={onViewChange}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onSettingsClick={() => setActivePanel(activePanel === 'settings' ? 'none' : 'settings')}
+          syncStatus={syncStatus}
+          onSync={() => {}}
+          isSyncing={false}
+        />
+      </div>
+
+      {/* Main Area */}
+      <div className="relative z-10 flex-1 flex flex-col min-w-0">
+        {/* Top Bar */}
         <TopDateBar
           selectedDate={selectedDate}
           onDateChange={onDateChange}
           syncStatus={syncStatus ? { status: syncStatus.status, lastRun: syncStatus.lastRun } : undefined}
         />
 
+        {/* Content */}
         <div className="flex-1 flex overflow-hidden">
           <main className="flex-1 overflow-auto relative">
             {renderView()}
           </main>
 
+          {/* Context Rail */}
           {showContextRail && summary && (
             <ContextRail
               summary={summary}
               battery={summary.battery}
               timeline={summary.timeline}
               onAiPrompt={handleAiPrompt}
-              className="hidden xl:flex"
+              timeOfDay={timeOfDay}
             />
           )}
         </div>
       </div>
 
+      {/* Side Panels */}
       {activePanel === 'settings' && (
-        <SettingsPanel onClose={() => setActivePanel('none')} />
+        <div className="relative z-20">
+          <SettingsPanel onClose={() => setActivePanel('none')} />
+        </div>
       )}
       {activePanel === 'editor' && (
-        <WidgetEditorPanel
-          onClose={cancelEditingWidget}
-          onSave={saveEditingWidget}
-          onChange={updateEditingWidget}
-          widget={editingWidget}
-        />
+        <div className="relative z-20">
+          <WidgetEditorPanel
+            onClose={cancelEditingWidget}
+            onSave={saveEditingWidget}
+            onChange={updateEditingWidget}
+            widget={editingWidget}
+          />
+        </div>
       )}
     </div>
   );

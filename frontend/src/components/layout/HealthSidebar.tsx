@@ -1,49 +1,41 @@
-import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import {
-  CalendarDays,
+  LayoutDashboard,
+  HeartPulse,
   Moon,
-  Brain,
-  Activity,
-  Shield,
+  Flame,
+  ShieldAlert,
   TrendingUp,
   BookOpen,
-  LayoutDashboard,
   Sparkles,
-  Settings,
+  Sliders,
   ChevronLeft,
   ChevronRight,
+  BatteryMedium,
+  RefreshCw,
+  MoonStar,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-export type AppView =
-  | 'today'
-  | 'sleep'
-  | 'readiness'
-  | 'activity'
-  | 'resilience'
-  | 'trends'
-  | 'journal'
-  | 'dashboards'
-  | 'ai';
+import type { AppView } from '@/types/app-view';
 
 interface NavItem {
   id: AppView;
   label: string;
   icon: React.ElementType;
-  section?: 'health' | 'tools';
+  section?: 'main' | 'bottom';
+  badge?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'today', label: 'Today', icon: CalendarDays, section: 'health' },
-  { id: 'sleep', label: 'Sleep', icon: Moon, section: 'health' },
-  { id: 'readiness', label: 'Readiness', icon: Brain, section: 'health' },
-  { id: 'activity', label: 'Activity', icon: Activity, section: 'health' },
-  { id: 'resilience', label: 'Resilience', icon: Shield, section: 'health' },
-  { id: 'trends', label: 'Trends', icon: TrendingUp, section: 'tools' },
-  { id: 'journal', label: 'Journal', icon: BookOpen, section: 'tools' },
-  { id: 'dashboards', label: 'Dashboards', icon: LayoutDashboard, section: 'tools' },
-  { id: 'ai', label: 'AI Analyst', icon: Sparkles, section: 'tools' },
+  { id: 'today', label: 'Dashboard', icon: LayoutDashboard, section: 'main' },
+  { id: 'readiness', label: 'Readiness', icon: HeartPulse, section: 'main' },
+  { id: 'sleep', label: 'Sleep', icon: Moon, section: 'main' },
+  { id: 'activity', label: 'Activity', icon: Flame, section: 'main' },
+  { id: 'resilience', label: 'Stress & Resilience', icon: ShieldAlert, section: 'main' },
+  { id: 'trends', label: 'Trends & Explorer', icon: TrendingUp, section: 'main' },
+  { id: 'journal', label: 'Tags & Journal', icon: BookOpen, section: 'main' },
+  { id: 'ai', label: 'Oura Labs AI', icon: Sparkles, section: 'main', badge: 'NEW' },
 ];
 
 interface HealthSidebarProps {
@@ -53,6 +45,9 @@ interface HealthSidebarProps {
   onToggleCollapse?: () => void;
   onSettingsClick?: () => void;
   className?: string;
+  syncStatus?: { status: string; lastRun: string | null } | null;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export function HealthSidebar({
@@ -62,93 +57,155 @@ export function HealthSidebar({
   onToggleCollapse,
   onSettingsClick,
   className,
+  syncStatus,
+  onSync,
+  isSyncing = false,
 }: HealthSidebarProps) {
-  const sections = ['health', 'tools'] as const;
+  const [restMode, setRestMode] = useState(false);
 
   return (
     <div className={cn(
-      'flex flex-col border-r border-white/[0.04] bg-[#060608]/95 backdrop-blur-xl text-white/70',
-      collapsed ? 'w-[60px]' : 'w-[220px]',
+      'w-64 glass-sidebar flex flex-col h-screen select-none shrink-0 text-white/40',
       className
     )}>
-      <div className="border-b border-white/[0.04] px-4 py-4">
-        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
-          <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-xl ring-1 ring-white/10">
-            <img src="icon.png" alt="Logo" className="h-full w-full object-cover" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate font-['Space_Grotesk',sans-serif] text-[14px] font-medium tracking-tight text-white/95">
-                Cracked Oura
-              </p>
-            </div>
-          )}
+      {/* Brand Header */}
+      <div className="p-4 flex items-center gap-3 border-b border-white/[0.06]">
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-lg shadow-white/10 flex-shrink-0">
+          <span className="text-oura-black font-bold text-base">Ō</span>
+        </div>
+        <div>
+          <h1 className="font-serif text-lg font-semibold tracking-wide text-white leading-tight">ŌURA</h1>
+          <p className="text-[10px] text-white/30 tracking-wider uppercase font-medium">Desktop OS</p>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 py-3">
-        <div className="px-2 space-y-4">
-          {sections.map((section) => (
-            <div key={section}>
-              {!collapsed && (
-                <p className="px-3 text-[10px] font-semibold tracking-widest text-white/25 uppercase mb-1.5">
-                  {section}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {NAV_ITEMS.filter(n => n.section === section).map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeView === item.id;
-                  return (
-                    <Button
-                      key={item.id}
-                      variant="ghost"
-                      className={cn(
-                        'h-9 w-full rounded-lg justify-start gap-2.5 transition-all text-sm font-medium',
-                        collapsed ? 'px-0 justify-center' : 'px-3',
-                        isActive
-                          ? 'bg-white/[0.07] text-white/95'
-                          : 'text-white/45 hover:bg-white/[0.04] hover:text-white/70'
-                      )}
-                      onClick={() => onViewChange(item.id)}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+      {/* User Profile Card */}
+      <div className="mx-3 my-3 glass-card rounded-2xl p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-helsinki to-enso-blue flex items-center justify-center flex-shrink-0 shadow-lg">
+            <span className="text-white font-bold text-sm">U</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-white text-sm font-semibold truncate">User</p>
+            <p className="text-white/30 text-[11px] truncate">Oura Ring · Connected</p>
+          </div>
+        </div>
+        {/* Ring connection status */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-score-green pulse-dot" />
+            <span className="text-white/35 text-[11px] font-medium">
+              Ring Connected
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-white/30 text-[11px]">
+            <BatteryMedium className="w-3.5 h-3.5 text-score-green" />
+            <span>--%</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-white/25 text-[10px]">
+            {syncStatus?.lastRun ? `Last sync: ${syncStatus.lastRun}` : 'No sync yet'}
+          </span>
+          <button
+            onClick={onSync}
+            disabled={isSyncing}
+            className="text-white/40 hover:text-white transition-colors cursor-pointer"
+          >
+            <RefreshCw className={cn('w-3 h-3', isSyncing && 'animate-spin text-enso-blue')} />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Navigation */}
+      <ScrollArea className="flex-1">
+        <div className="px-2 py-1 space-y-0.5">
+          {NAV_ITEMS.filter(n => n.section === 'main').map((item) => {
+            const Icon = item.icon;
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onViewChange(item.id)}
+                className={cn(
+                  'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer',
+                  isActive
+                    ? 'glass-tab text-white shadow-sm'
+                    : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+                )}
+              >
+                <div className="flex items-center gap-3 truncate">
+                  <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-enso-blue')} />
+                  <span className="truncate">{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span className="text-[10px] bg-living-coral/90 text-white px-1.5 py-0.5 rounded-md font-semibold tracking-wide">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </ScrollArea>
 
-      <div className="space-y-0.5 p-2 border-t border-white/[0.04]">
-        {onSettingsClick && (
-          <Button
-            variant="ghost"
+      {/* Bottom Actions */}
+      <div className="p-3 border-t border-white/[0.06] space-y-3">
+        {/* Rest Mode Toggle */}
+        <div className="glass-tab rounded-xl p-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              'w-7 h-7 rounded-lg flex items-center justify-center',
+              restMode ? 'bg-helsinki/40 text-enso-blue' : 'bg-white/[0.05] text-white/30'
+            )}>
+              <MoonStar className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-white">Rest Mode</div>
+              <div className="text-[10px] text-white/30">{restMode ? 'Prioritizing Sleep' : 'Standard Focus'}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setRestMode(!restMode)}
             className={cn(
-              'h-9 w-full rounded-lg justify-start gap-2.5 text-sm font-medium text-white/40 hover:bg-white/[0.04] hover:text-white/70',
-              collapsed && 'px-0 justify-center'
+              'w-9 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer',
+              restMode ? 'bg-helsinki' : 'bg-white/[0.12]'
             )}
-            onClick={onSettingsClick}
-            title={collapsed ? 'Settings' : undefined}
           >
-            <Settings className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Settings</span>}
-          </Button>
-        )}
-        {onToggleCollapse && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-full rounded-lg text-white/30 hover:bg-white/[0.04] hover:text-white/60"
+            <div className={cn(
+              'bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200',
+              restMode ? 'translate-x-4' : 'translate-x-0'
+            )} />
+          </button>
+        </div>
+
+        {/* Settings Footer */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5 truncate">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-helsinki to-enso-blue flex items-center justify-center font-semibold text-xs text-white shrink-0">
+              U
+            </div>
+            <div className="truncate">
+              <div className="text-xs font-medium text-white/70 truncate">User</div>
+            </div>
+          </div>
+          {onSettingsClick && (
+            <button
+              onClick={onSettingsClick}
+              className="p-1.5 hover:bg-white/[0.06] rounded-lg text-white/30 hover:text-white/70 transition-colors cursor-pointer"
+              title="Settings"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+          <button
             onClick={onToggleCollapse}
+            className="h-8 w-full rounded-lg text-white/30 hover:bg-white/[0.04] hover:text-white/60 flex items-center justify-center cursor-pointer"
           >
             {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
-          </Button>
-        )}
+          </button>
       </div>
     </div>
   );
