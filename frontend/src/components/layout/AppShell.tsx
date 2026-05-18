@@ -4,6 +4,7 @@ import { TopDateBar } from './TopDateBar';
 import { ContextRail } from './ContextRail';
 import { SettingsPanel } from '@/components/dashboard/SettingsPanel';
 import { WidgetEditorPanel } from '@/components/dashboard/WidgetEditorPanel';
+import { ChatPanel } from '@/components/dashboard/ChatPanel';
 import { TodayView } from '@/components/views/TodayView';
 import { SleepView } from '@/components/views/SleepView';
 import { ReadinessView } from '@/components/views/ReadinessView';
@@ -14,9 +15,10 @@ import { JournalView } from '@/components/views/JournalView';
 import { AIAnalystView } from '@/components/views/AIAnalystView';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { Button } from '@/components/ui/button';
+import { api } from '@/lib/api';
 import { buildDaySummary } from '@/lib/day-summary';
 import { format } from 'date-fns';
-import { Check, Edit2, Plus } from 'lucide-react';
+import { Check, Edit2, PanelRightOpen, Plus, RefreshCw, Sparkles } from 'lucide-react';
 import type { Message } from '@/hooks/useChat';
 import type { AppView } from '@/types/app-view';
 import type { Dashboard, WidgetInstance } from '@/types';
@@ -26,7 +28,9 @@ interface AppShellProps {
   onViewChange: (view: AppView) => void;
   selectedDate: Date;
   onDateChange: (date: Date) => void;
+  connectionStatus: 'connected' | 'disconnected' | 'checking';
   syncStatus: { status: string; lastRun: string | null } | null;
+  onRetryConnection: () => void;
   data: any;
 
   dashboards: Dashboard[];
@@ -46,7 +50,7 @@ interface AppShellProps {
   saveEditingWidget: () => void;
   cancelEditingWidget: () => void;
   activePanel: string;
-  setActivePanel: (p: 'none' | 'settings' | 'editor') => void;
+  setActivePanel: (p: 'none' | 'settings' | 'editor' | 'chat') => void;
   updateActiveDashboard: (updates: Partial<Dashboard>) => void;
 
   messages: Message[];
@@ -61,7 +65,9 @@ export function AppShell({
   onViewChange,
   selectedDate,
   onDateChange,
+  connectionStatus,
   syncStatus,
+  onRetryConnection,
   data,
   dashboards,
   activeDashboardId,
@@ -88,6 +94,7 @@ export function AppShell({
   clearHistory,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
 
   const summary = data ? buildDaySummary(data, format(selectedDate, 'yyyy-MM-dd')) : null;
   const hour = new Date().getHours();
@@ -100,6 +107,19 @@ export function AppShell({
 
   const handleLayoutChange = (newLayout: any[]) => {
     updateActiveDashboard({ layout: newLayout });
+  };
+
+  const handleSync = async () => {
+    if (isSyncingNow) return;
+    setIsSyncingNow(true);
+    try {
+      await api.requestExport();
+    } catch {
+      setActivePanel('settings');
+    } finally {
+      onRetryConnection();
+      setIsSyncingNow(false);
+    }
   };
 
   const activeDashboardName = dashboards.find(d => d.id === activeDashboardId)?.name ?? 'Dashboard';
@@ -209,8 +229,10 @@ export function AppShell({
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           onSettingsClick={() => setActivePanel(activePanel === 'settings' ? 'none' : 'settings')}
           syncStatus={syncStatus}
-          onSync={() => {}}
-          isSyncing={false}
+          onSync={handleSync}
+          isSyncing={isSyncingNow || syncStatus?.status === 'Processing'}
+          battery={summary?.battery ?? null}
+          batteryTimestamp={summary?.batteryTimestamp ?? null}
           dashboards={dashboards}
           activeDashboardId={activeDashboardId}
           onDashboardSelect={onDashboardSelect}
@@ -227,11 +249,44 @@ export function AppShell({
           selectedDate={selectedDate}
           onDateChange={onDateChange}
           syncStatus={syncStatus ? { status: syncStatus.status, lastRun: syncStatus.lastRun } : undefined}
+          connectionStatus={connectionStatus}
+          rightActions={
+            <>
+              <Button
+                variant={activePanel === 'chat' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setActivePanel(activePanel === 'chat' ? 'none' : 'chat')}
+                className="gap-2 border-white/[0.08] bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+              >
+                {activePanel === 'chat' ? <PanelRightOpen className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {activePanel === 'chat' ? 'Close Analyst' : 'Analyst Panel'}
+              </Button>
+            </>
+          }
         />
 
         {/* Content */}
         <div className="flex-1 flex overflow-hidden">
           <main className="flex-1 overflow-auto relative">
+            {connectionStatus === 'disconnected' && (
+              <div className="sticky top-0 z-20 mx-6 mt-4 flex items-center justify-between gap-3 rounded-xl border border-living-coral/25 bg-living-coral/10 px-4 py-3 backdrop-blur-xl">
+                <div className="flex items-center gap-3">
+                  <span className="h-2.5 w-2.5 rounded-full bg-living-coral pulse-dot" />
+                  <p className="text-sm text-living-coral/90">
+                    Backend is unreachable. Data, sync, settings, and AI analysis may not work.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRetryConnection}
+                  className="gap-2 shrink-0 border-living-coral/30 bg-living-coral/10 text-living-coral hover:bg-living-coral/20"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Retry
+                </Button>
+              </div>
+            )}
             {renderView()}
           </main>
 
@@ -252,6 +307,16 @@ export function AppShell({
       {activePanel === 'settings' && (
         <div className="relative z-20">
           <SettingsPanel onClose={() => setActivePanel('none')} />
+        </div>
+      )}
+      {activePanel === 'chat' && (
+        <div className="relative z-20">
+          <ChatPanel
+            onClose={() => setActivePanel('none')}
+            messages={messages}
+            isLoading={isLoading}
+            onSend={sendMessage}
+          />
         </div>
       )}
       {activePanel === 'editor' && (

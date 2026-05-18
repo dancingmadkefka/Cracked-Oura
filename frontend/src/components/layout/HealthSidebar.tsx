@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { AppView } from '@/types/app-view';
 import type { Dashboard } from '@/types';
+import { format } from 'date-fns';
 
 interface NavItem {
   id: AppView;
@@ -47,7 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'resilience', label: 'Stress & Resilience', icon: ShieldAlert, section: 'main' },
   { id: 'trends', label: 'Trends & Explorer', icon: TrendingUp, section: 'main' },
   { id: 'journal', label: 'Tags & Journal', icon: BookOpen, section: 'main' },
-  { id: 'ai', label: 'Oura Labs AI', icon: Sparkles, section: 'main', badge: 'NEW' },
+  { id: 'ai', label: 'AI Analyst', icon: Sparkles, section: 'main', badge: 'NEW' },
 ];
 
 interface HealthSidebarProps {
@@ -60,6 +61,8 @@ interface HealthSidebarProps {
   syncStatus?: { status: string; lastRun: string | null } | null;
   onSync?: () => void;
   isSyncing?: boolean;
+  battery?: number | null;
+  batteryTimestamp?: string | null;
 
   // Dashboard management
   dashboards?: Dashboard[];
@@ -80,6 +83,8 @@ export function HealthSidebar({
   syncStatus,
   onSync,
   isSyncing = false,
+  battery,
+  batteryTimestamp,
   dashboards = [],
   activeDashboardId,
   onDashboardSelect,
@@ -104,10 +109,14 @@ export function HealthSidebar({
   };
 
   const showDashboards = dashboards.length > 0 && onDashboardSelect;
+  const batteryTime = batteryTimestamp
+    ? format(new Date(batteryTimestamp.replace(' ', 'T')), 'HH:mm')
+    : null;
 
   return (
     <div className={cn(
-      'w-64 glass-sidebar flex flex-col h-screen select-none shrink-0 text-white/40',
+      'glass-sidebar flex flex-col h-screen select-none shrink-0 text-white/40 transition-[width] duration-200',
+      collapsed ? 'w-16' : 'w-64',
       className
     )}>
       {/* Brand Header */}
@@ -115,13 +124,16 @@ export function HealthSidebar({
         <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-lg shadow-white/10 flex-shrink-0">
           <span className="text-oura-black font-bold text-base">Ō</span>
         </div>
-        <div>
-          <h1 className="font-serif text-lg font-semibold tracking-wide text-white leading-tight">ŌURA</h1>
-          <p className="text-[10px] text-white/30 tracking-wider uppercase font-medium">Desktop OS</p>
-        </div>
+        {!collapsed && (
+          <div>
+            <h1 className="font-serif text-lg font-semibold tracking-wide text-white leading-tight">ŌURA</h1>
+            <p className="text-[10px] text-white/30 tracking-wider uppercase font-medium">Desktop OS</p>
+          </div>
+        )}
       </div>
 
       {/* User Profile Card */}
+      {!collapsed && (
       <div className="mx-3 my-3 glass-card rounded-2xl p-3">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-helsinki to-enso-blue flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -129,7 +141,7 @@ export function HealthSidebar({
           </div>
           <div className="min-w-0">
             <p className="text-white text-sm font-semibold truncate">User</p>
-            <p className="text-white/30 text-[11px] truncate">Oura Ring · Connected</p>
+            <p className="text-white/30 text-[11px] truncate">Local export data</p>
           </div>
         </div>
         {/* Ring connection status */}
@@ -137,17 +149,17 @@ export function HealthSidebar({
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-score-green pulse-dot" />
             <span className="text-white/35 text-[11px] font-medium">
-              Ring Connected
+              Export Data
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-white/30 text-[11px]">
             <BatteryMedium className="w-3.5 h-3.5 text-score-green" />
-            <span>--%</span>
+            <span>{battery != null ? `${Math.round(battery)}%` : '--%'}</span>
           </div>
         </div>
         <div className="flex items-center justify-between mt-1.5">
           <span className="text-white/25 text-[10px]">
-            {syncStatus?.lastRun ? `Last sync: ${syncStatus.lastRun}` : 'No sync yet'}
+            {batteryTime ? `Battery sample: ${batteryTime}` : syncStatus?.lastRun ? `Last sync: ${syncStatus.lastRun}` : 'No sync yet'}
           </span>
           <button
             onClick={onSync}
@@ -158,6 +170,7 @@ export function HealthSidebar({
           </button>
         </div>
       </div>
+      )}
 
       {/* Main Navigation */}
       <ScrollArea className="flex-1">
@@ -171,6 +184,7 @@ export function HealthSidebar({
                 onClick={() => onViewChange(item.id)}
                 className={cn(
                   'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer',
+                  collapsed && 'justify-center px-2',
                   isActive
                     ? 'glass-tab text-white shadow-sm'
                     : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
@@ -178,9 +192,9 @@ export function HealthSidebar({
               >
                 <div className="flex items-center gap-3 truncate">
                   <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-enso-blue')} />
-                  <span className="truncate">{item.label}</span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
                 </div>
-                {item.badge && (
+                {!collapsed && item.badge && (
                   <span className="text-[10px] bg-living-coral/90 text-white px-1.5 py-0.5 rounded-md font-semibold tracking-wide">
                     {item.badge}
                   </span>
@@ -190,7 +204,7 @@ export function HealthSidebar({
           })}
 
           {/* Custom Dashboards Section */}
-          {showDashboards && (
+          {!collapsed && showDashboards && (
             <div className="mt-4">
               <p className="px-3 text-[10px] font-semibold tracking-widest text-white/25 uppercase mb-1.5">
                 Dashboards
@@ -267,6 +281,7 @@ export function HealthSidebar({
       {/* Bottom Actions */}
       <div className="p-3 border-t border-white/[0.06] space-y-3">
         {/* Rest Mode Toggle */}
+        {!collapsed && (
         <div className="glass-tab rounded-xl p-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className={cn(
@@ -293,9 +308,11 @@ export function HealthSidebar({
             )} />
           </button>
         </div>
+        )}
 
         {/* Settings Footer */}
-        <div className="flex items-center justify-between px-1">
+        <div className={cn('flex items-center justify-between px-1', collapsed && 'justify-center')}>
+          {!collapsed && (
           <div className="flex items-center gap-2.5 truncate">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-helsinki to-enso-blue flex items-center justify-center font-semibold text-xs text-white shrink-0">
               U
@@ -304,6 +321,7 @@ export function HealthSidebar({
               <div className="text-xs font-medium text-white/70 truncate">User</div>
             </div>
           </div>
+          )}
           {onSettingsClick && (
             <button
               onClick={onSettingsClick}

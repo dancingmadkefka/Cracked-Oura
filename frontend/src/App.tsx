@@ -29,7 +29,9 @@ function DashboardApp() {
     selectedDate,
     setSelectedDate,
     data,
+    connectionStatus,
     syncInfo,
+    retryConnection,
   } = useDashboard();
 
   const { messages, isLoading, sendMessage, clearHistory } = useChat();
@@ -42,7 +44,9 @@ function DashboardApp() {
       onViewChange={(view: AppView) => setActiveView(view)}
       selectedDate={selectedDate}
       onDateChange={(date: Date) => setSelectedDate(date)}
+      connectionStatus={connectionStatus}
       syncStatus={syncStatus}
+      onRetryConnection={retryConnection}
 
       dashboards={dashboards}
       activeDashboardId={activeDashboardId}
@@ -67,7 +71,7 @@ function DashboardApp() {
       updateActiveDashboard={updateActiveDashboard}
 
       activePanel={activePanel}
-      setActivePanel={(p) => setActivePanel(p as 'none' | 'settings' | 'editor')}
+      setActivePanel={(p) => setActivePanel(p as 'none' | 'settings' | 'editor' | 'chat')}
 
       messages={messages}
       isLoading={isLoading}

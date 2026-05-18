@@ -51,7 +51,7 @@ export function ContextRail({ battery, batteryTimestamp, timeline, onAiPrompt, c
           </div>
           <div>
             <p className="text-white text-sm font-semibold">Oura Ring</p>
-            <p className="text-white/40 text-xs">Gen3 · Connected</p>
+            <p className="text-white/40 text-xs">Latest export sample</p>
             <div className="flex items-center gap-1.5 mt-1.5">
               <BatteryMedium className="w-3 h-3 text-score-green" />
               <span className="text-xs text-score-green font-medium">{battery != null ? Math.round(battery) : '--'}%</span>
@@ -72,7 +72,7 @@ export function ContextRail({ battery, batteryTimestamp, timeline, onAiPrompt, c
             <span className="text-white/40">Last sync</span>
             <span className="text-white/60 flex items-center gap-1">
               <Bluetooth className="w-3 h-3 text-score-green" />
-              Just now
+              {batteryTimestamp ? format(new Date(batteryTimestamp.replace(' ', 'T')), 'HH:mm') : 'No sample'}
             </span>
           </div>
         </div>

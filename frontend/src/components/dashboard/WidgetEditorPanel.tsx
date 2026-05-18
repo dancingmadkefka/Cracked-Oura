@@ -76,7 +76,7 @@ export function WidgetEditorPanel({ onClose, onSave, onChange, widget }: WidgetE
         { value: "sleep.score", label: "sleep.score", types: ["score", "metric", "trend", "table"] },
         { value: "readiness.score", label: "readiness.score", types: ["score", "metric", "trend", "table"] },
         { value: "activity.score", label: "activity.score", types: ["score", "metric", "trend", "table"] },
-        { value: "sleep.total_sleep_duration", label: "sleep.total_sleep_duration", types: ["metric", "trend", "table"] },
+        { value: "sleep_session.total_sleep_duration", label: "sleep_session.total_sleep_duration", types: ["metric", "trend", "table"] },
         { value: "sleep.average_spo2", label: "sleep.average_spo2", types: ["metric", "trend", "table"] },
         { value: "sleep.breathing_disturbance_index", label: "sleep.breathing_disturbance_index", types: ["metric", "trend", "table"] },
         { value: "activity.steps", label: "activity.steps", types: ["metric", "trend", "table"] },

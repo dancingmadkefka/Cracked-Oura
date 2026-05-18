@@ -4,15 +4,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { ModeToggle } from '@/components/mode-toggle';
 
 interface TopDateBarProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   syncStatus?: { status: string; lastRun: string | null };
+  connectionStatus?: 'connected' | 'disconnected' | 'checking';
+  rightActions?: React.ReactNode;
   className?: string;
 }
 
-export function TopDateBar({ selectedDate, onDateChange, syncStatus, className }: TopDateBarProps) {
+export function TopDateBar({ selectedDate, onDateChange, syncStatus, connectionStatus, rightActions, className }: TopDateBarProps) {
   return (
     <header className={cn(
       'glass-nav h-14 px-6 flex items-center justify-between select-none flex-shrink-0',
@@ -78,6 +81,18 @@ export function TopDateBar({ selectedDate, onDateChange, syncStatus, className }
 
       {/* Right: Sync Status */}
       <div className="flex items-center gap-4 shrink-0">
+        {connectionStatus && (
+          <div className="flex items-center gap-2 text-[11px] text-white/35">
+            <span className={cn(
+              'w-1.5 h-1.5 rounded-full',
+              connectionStatus === 'checking' ? 'bg-score-yellow pulse-dot' :
+              connectionStatus === 'connected' ? 'bg-score-green pulse-dot' :
+              'bg-living-coral'
+            )} />
+            {connectionStatus === 'checking' ? 'Checking backend' :
+              connectionStatus === 'connected' ? 'Backend online' : 'Backend offline'}
+          </div>
+        )}
         {syncStatus && (
           <div className="flex items-center gap-2 text-[11px] text-white/35">
             <span className={cn(
@@ -91,6 +106,8 @@ export function TopDateBar({ selectedDate, onDateChange, syncStatus, className }
               : 'No sync'}
           </div>
         )}
+        {rightActions}
+        <ModeToggle />
       </div>
     </header>
   );
