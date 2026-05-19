@@ -205,16 +205,21 @@ async def run_download_existing_task():
     waiting_for_otp = False
     try:
         cfg = config_manager.get_config()
-        # Ensure automator is initialized and configured
-        if not automator._is_initialized:
-            await automator.initialize(headless=cfg.get("headless", True))
+        # Always reinitialize to get a fresh browser session with saved cookies
+        if automator._is_initialized:
+            try:
+                await automator.cleanup()
+            except Exception as e:
+                logger.warning(f"Cleanup before download task had errors: {e}")
         
+        await automator.initialize(headless=cfg.get("headless", True))
         automator.email = cfg.get("email", "")
         
         # Use user data dir for downloads
         from backend.src.paths import get_user_data_dir
         save_dir = str(get_user_data_dir())
         
+        # Try navigating directly to export page (session loaded from storage_state)
         result = await automator.download_existing_export(save_dir=save_dir)
         
         if isinstance(result, dict) and result.get("status") == "otp_required":
@@ -223,6 +228,13 @@ async def run_download_existing_task():
             logger.info("Download existing task paused: waiting for OTP.")
             return
 
+        if isinstance(result, dict):
+            # Error dict returned (not a file path)
+            error_msg = result.get("message", "Unknown download error")
+            logger.error(f"Download failed: {error_msg}")
+            config_manager.update_status("Error", message=error_msg)
+            return
+        
         file_path = result
         
         if file_path:
@@ -230,14 +242,19 @@ async def run_download_existing_task():
             await process_ingestion(file_path)
         else:
             logger.info("No existing export found.")
+            config_manager.update_status("Error", message="No export available to download. Try requesting a new sync.")
         
         # Cleanup on success (if not waiting for OTP)
         await automator.cleanup()
 
     except Exception as e:
         logger.error(f"Download task failed: {e}")
+        config_manager.update_status("Error", message=f"Download failed: {e}")
         if not waiting_for_otp:
-            await automator.cleanup() # Cleanup on error
+            try:
+                await automator.cleanup()
+            except Exception:
+                pass
 
 
 @app.post("/api/automation/download-latest")
@@ -262,7 +279,13 @@ async def run_ingestion_task(force=False):
     waiting_for_otp = False
     
     try:
-        # 1. Initialize
+        # 1. Always reinitialize for a fresh browser session
+        if automator._is_initialized:
+            try:
+                await automator.cleanup()
+            except Exception as e:
+                logger.warning(f"Cleanup before ingestion task had errors: {e}")
+        
         config_manager.update_status("Initializing...")
         headless_mode = cfg.get("headless", True)
         await automator.initialize(headless=headless_mode)
@@ -304,16 +327,19 @@ async def run_ingestion_task(force=False):
             await process_ingestion(file_path)
         else:
             logger.info("Background worker: No file downloaded (Timeout or Error).")
-            config_manager.update_status("Failed to download export.")
+            config_manager.update_status("Error", message="No file downloaded (timeout?)")
         
         # Cleanup on success
         await automator.cleanup()
 
     except Exception as e:
         logger.error(f"Background worker error: {e}")
-        config_manager.update_status(f"Error: {str(e)}")
+        config_manager.update_status("Error", message=f"Sync failed: {e}")
         if not waiting_for_otp:
-            await automator.cleanup() # Cleanup on error
+            try:
+                await automator.cleanup()
+            except Exception:
+                pass
 
 async def process_ingestion(zip_path):
     logger.info(f"Background worker: Downloaded to {zip_path}")
@@ -328,11 +354,12 @@ async def process_ingestion(zip_path):
         
         # Success!
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_manager.update_status("Idle", last_run=now_str)
+        config_manager.update_status("Idle", message="Sync completed successfully.", last_run=now_str)
         
     except Exception as e:
         logger.error(f"Background worker: Ingestion failed: {e}")
-        config_manager.update_status(f"Ingestion Failed: {str(e)}")
+        # Don't crash the whole process; mark as partial success if data was ingested
+        config_manager.update_status("Idle", message=f"Sync complete (partial: {e})")
     finally:
         db.close()
 

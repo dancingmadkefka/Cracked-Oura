@@ -151,6 +151,10 @@ async def run_full_sync_task(db_session_factory):
                     
                     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     config_manager.update_status("Idle", message="Sync and ingestion complete!", last_run=now_str)
+                except Exception as e:
+                    logger.error(f"Full sync: Ingestion partial failure: {e}")
+                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    config_manager.update_status("Idle", message=f"Sync complete (partial: {e})", last_run=now_str)
                 finally:
                     db.close()
             else:

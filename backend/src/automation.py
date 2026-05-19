@@ -21,7 +21,9 @@ class OuraAutomator:
         self.page: Optional[Page] = None
         self.playwright = None
         self._is_initialized = False
-        self.storage_state_path = os.path.join(os.getcwd(), "oura_session.json")
+        # Use a stable path regardless of CWD (Electron app changes CWD per invocation)
+        from .paths import get_user_data_dir
+        self.storage_state_path = os.path.join(str(get_user_data_dir()), "oura_session.json")
         self.email: Optional[str] = None
         self.password: Optional[str] = None
         self.base_url = "https://membership.ouraring.com"
@@ -161,14 +163,31 @@ class OuraAutomator:
 
     async def cleanup(self):
         """Closes browser resources and stops Playwright."""
+        errors = []
         if self.context:
-            await self.context.close()
+            try:
+                await self.context.close()
+            except Exception as e:
+                errors.append(f"context.close: {e}")
+            self.context = None
         if self.browser:
-            await self.browser.close()
+            try:
+                await self.browser.close()
+            except Exception as e:
+                errors.append(f"browser.close: {e}")
+            self.browser = None
         if self.playwright:
-            await self.playwright.stop()
+            try:
+                await self.playwright.stop()
+            except Exception as e:
+                errors.append(f"playwright.stop: {e}")
+            self.playwright = None
+        self.page = None
         self._is_initialized = False
-        logger.info("OuraAutomator cleaned up.")
+        if errors:
+            logger.warning(f"OuraAutomator cleanup had errors: {errors}")
+        else:
+            logger.info("OuraAutomator cleaned up.")
 
     async def clear_session(self) -> bool:
         """Clears stored session file and closes browser resources."""
@@ -180,6 +199,20 @@ class OuraAutomator:
             logger.info("Session file removed.")
             return True
         return False
+
+    async def _ensure_page_alive(self):
+        """Ensures self.page is a valid, non-closed page. Updates reference after navigations."""
+        if self.page and not self.page.is_closed():
+            return
+        # Page was closed — grab the latest page from the context
+        if self.context:
+            pages = self.context.pages
+            if pages:
+                self.page = pages[-1]
+                logger.info(f"Page was closed, switched to new page: {self.page.url}")
+                return
+        # If context is also gone, raise
+        raise Exception("Browser context closed; re-initialization required.")
 
     async def save_context(self):
         """Saves current browser context (cookies/local storage) to disk."""
@@ -272,7 +305,11 @@ class OuraAutomator:
              await self.page.keyboard.press("Enter")
         
         # Final Verification
-        await self.page.wait_for_load_state("networkidle")
+        try:
+            await self._ensure_page_alive()
+            await self.page.wait_for_load_state("networkidle")
+        except Exception:
+            pass
         if not self._is_logged_in():
              # Re-check OTP in case of network lag
              if await self._check_otp_screen():
@@ -296,7 +333,11 @@ class OuraAutomator:
         else:
             await self.page.keyboard.press("Enter")
         
-        await self.page.wait_for_timeout(3000)
+        try:
+            await self._ensure_page_alive()
+            await self.page.wait_for_timeout(3000)
+        except Exception:
+            pass
 
     async def _check_otp_screen(self):
         """Checks if OTP screen is active and handles the 'Send Code' intermediate step if present."""
@@ -314,15 +355,16 @@ class OuraAutomator:
             # Always click Send Code to ensure Oura actually emails a code
             logger.info("Found intermediate 'Send Code' button. Clicking...")
             await intermediate_btn.click()
-            # Oura's redirect after Send Code may navigate to a new page.
-            # Update page reference and wait for navigation to complete.
+            # Oura's redirect after Send Code navigates to a new page.
             try:
+                await self._ensure_page_alive()
                 await self.page.wait_for_timeout(3000)
             except Exception:
-                # Page may have been replaced during navigation; get the new page
-                if self.context and self.context.pages:
-                    self.page = self.context.pages[-1]
+                try:
+                    await self._ensure_page_alive()
                     await self.page.wait_for_load_state("networkidle", timeout=10000)
+                except Exception:
+                    pass
 
         # Check for OTP input visibility
         for selector in otp_selectors:
@@ -528,11 +570,12 @@ class OuraAutomator:
             try:
                 await self.page.wait_for_load_state("networkidle", timeout=2000)
             except: 
-                pass
+                await self._ensure_page_alive()
                 
             current_url = self.page.url
             if "/data-export" in current_url:
                 logger.info("Successfully arrived at data-export page.")
+                await self._dismiss_cookie_banners()
                 return True
             
             # Handle Login Redirect — don't auto-login, surface to user
@@ -556,6 +599,9 @@ class OuraAutomator:
 
     async def _click_request_export_button(self) -> bool:
         """Finds and clicks the 'Request data export' button, handling various states (disabled, aria attributes)."""
+        await self._dismiss_cookie_banners()
+        await self.page.wait_for_timeout(1000)
+        
         # Find Request Button (Try likely selectors)
         target_btn = self.page.locator('[data-testid="pageSubtitle"] + button').first
         try:
@@ -602,47 +648,115 @@ class OuraAutomator:
             return False
 
     async def _wait_for_processing(self) -> bool:
-        """Polls until the request button is re-enabled, indicating report generation is complete."""
+        """Polls until the export is ready (download button appears)."""
         max_retries = 30 # Approx 2.5 hours total wait time
         poll_interval = 300 # 5 minutes between checks
         
         for i in range(max_retries):
-            # Check if Request button is enabled again (indicating download is ready)
-            request_btn = self.page.locator('[data-testid="pageSubtitle"] + button').first
-            if not await request_btn.is_visible():
-                request_btn = self.page.locator('main button').first
-            
-            if await request_btn.is_visible() and await request_btn.is_enabled():
-                return True # Export is ready
+            # Check if download button is now visible (export ready)
+            download_indicators = [
+                "button[aria-label='Download data']",
+                "button:has-text('Download')",
+                "a[download]",
+            ]
+            for sel in download_indicators:
+                try:
+                    btn = self.page.locator(sel).first
+                    if await btn.is_visible(timeout=2000):
+                        logger.info(f"Export ready! Download button found via {sel}")
+                        return True
+                except Exception:
+                    continue
             
             logger.info(f"Processing... (Attempt {i+1}/{max_retries}) - Next check in {poll_interval}s")
             await self.page.wait_for_timeout(poll_interval * 1000)
-            await self.page.reload()
-            await self.page.wait_for_load_state("networkidle")
+            try:
+                await self.page.reload(timeout=30000)
+                await self.page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception as e:
+                logger.warning(f"Page reload failed: {e}. Retrying...")
             
         return False
 
+    async def _dismiss_cookie_banners(self):
+        """Dismisses cookie consent banners that may block UI elements."""
+        try:
+            # Common cookie consent button patterns
+            dismiss_btns = [
+                "button:has-text('Accept All Cookies')",
+                "button:has-text('Accept All')",
+                "button:has-text('Accept Necessary')",
+                "button:has-text('Accept')",
+                "button:has-text('Allow All')",
+                "button:has-text('OK')",
+                "button:has-text('Got it')",
+                "button:has-text('Agree')",
+                "[aria-label='Accept cookies']",
+                "[aria-label='Accept all cookies']",
+            ]
+            for sel in dismiss_btns:
+                try:
+                    btn = self.page.locator(sel).first
+                    if await btn.is_visible(timeout=1000):
+                        await btn.click()
+                        logger.info(f"Dismissed cookie banner via: {sel}")
+                        await self.page.wait_for_timeout(1000)
+                        return True
+                except Exception:
+                    continue
+            return False
+        except Exception as e:
+            logger.debug(f"Cookie banner dismissal skipped: {e}")
+            return False
+
     async def _download_file(self, save_dir: str) -> Optional[str]:
         """Finds the download button and handles the file save dialog."""
-        download_btn = self.page.locator("button[aria-label='Download data']").first
-        try:
-            await download_btn.wait_for(state="visible", timeout=10000)
-        except:
-            pass 
-            
-        if await download_btn.is_visible():
-            logger.info("Download button found. Clicking...")
-            async with self.page.expect_download() as download_info:
-                await download_btn.click()
-            
-            download = await download_info.value
-            filename = download.suggested_filename
-            save_path = os.path.join(save_dir, filename)
-            await download.save_as(save_path)
-            logger.info(f"Downloaded to {save_path}")
-            return save_path
+        # Dismiss any cookie banners that might obscure the download button
+        await self._dismiss_cookie_banners()
+        await self.page.wait_for_timeout(1000)
         
-        logger.warning("Download button not found.")
-        return None
+        # Try multiple selectors for the download button (Oura's UI varies)
+        download_selectors = [
+            "button[aria-label='Download data']",
+            "button:has-text('Download')",
+            "a[download]",
+            "main button:has-text('Download')",
+        ]
+        download_btn = None
+        for sel in download_selectors:
+            btn = self.page.locator(sel).first
+            try:
+                if await btn.is_visible(timeout=3000):
+                    download_btn = btn
+                    logger.info(f"Download button found via selector: {sel}")
+                    break
+            except Exception:
+                continue
+        
+        if not download_btn:
+            # Dump page state for debugging
+            buttons = await self.page.locator('button').all()
+            btn_texts = []
+            for b in buttons:
+                try:
+                    if await b.is_visible():
+                        text = (await b.inner_text()).strip()
+                        aria = await b.get_attribute('aria-label') or ''
+                        btn_texts.append(f"'{text}' aria={aria}")
+                except Exception:
+                    pass
+            logger.warning(f"Download button not found. Visible buttons: {btn_texts}")
+            return None
+
+        logger.info("Download button found. Clicking...")
+        async with self.page.expect_download(timeout=30000) as download_info:
+            await download_btn.click()
+        
+        download = await download_info.value
+        filename = download.suggested_filename
+        save_path = os.path.join(save_dir, filename)
+        await download.save_as(save_path)
+        logger.info(f"Downloaded to {save_path}")
+        return save_path
 
 automator = OuraAutomator()
