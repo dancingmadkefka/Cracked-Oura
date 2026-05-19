@@ -1,228 +1,162 @@
-# Issue: Backend Login Fails with Empty Error After UI Redesign
+# Issue: Backend Login & Download Failures — Postmortem
 
-**Date:** 2026-05-18
+**Date:** 2026-05-18 → 2026-05-19
 **Severity:** High
-**Component:** Backend (`backend/src/automation.py`, `backend/src/api/routes.py`)
-**Reporter:** UI Redesign Session
+**Component:** Backend (`backend/src/automation.py`, `backend/src/api/main.py`, `backend/src/api/routes.py`)
+**Final Status:** ✅ Resolved — all login, download, and ingestion paths verified
+
+---
 
 ## Summary
 
-The Oura login flow via the Settings panel is broken. Clicking "Log in" shows "Login failed" at the bottom of the Settings panel. A second click shows the OTP input field but the OTP submission also fails. The backend returns HTTP 500 with an empty `detail` field.
+The Oura login and data-sync flow broke across two phases:
 
-This was discovered after the UI redesign session. The UI code for login was **not modified** — only `SettingsPanel.tsx` styling was adjusted (glass-morphism classes). The login button, API calls, and state management are unchanged.
+1. **Phase 1 — Login HTTP 500**: Clicking "Log in" returned HTTP 500 with empty `detail`. The Playwright Chromium browser was missing from the custom install path, and the install check was fooled by stale marker files.
 
-## Reproduction
+2. **Phase 2 — Download timeout + crash**: After login succeeded, the data export download failed with "No file downloaded (timeout?)" because a cookie-consent banner obscured the download button. The backend then crashed because a non-critical parser error in `sleepmodel.csv` propagated unhandled.
 
-1. Open Settings panel (gear icon in sidebar)
-2. Enter email: `henderson.daniel10@yahoo.com`
-3. Click "Log in"
-4. **Result:** "Login failed" toast appears at bottom of panel. No OTP email received.
-5. Click "Log in" again
-6. **Result:** OTP input field appears (backend returned `otp_required` on second call due to `_login_in_progress` flag)
-7. Enter any OTP code, click "Submit"
-8. **Result:** "Invalid code" or similar error
+---
 
-## API Evidence
+## Root Causes (in order discovered)
 
-### First call (fresh state):
+### #1 — Browser install check fooled by stale marker files
+`_ensure_browser_installed()` checked `os.listdir(self.browser_dir)`. The custom browser directory (`AppData\Roaming\CrackedOura\browsers`) contained versioned subdirs (`chromium_headless_shell-1208/`) with **only marker files** (`INSTALLATION_COMPLETE`, `DEPENDENCIES_VALIDATED`) from an interrupted previous install. The check passed, `chromium.launch()` failed, and the error propagated with `str(e) == ""`.
+
+### #2 — Stale `_login_in_progress` blocked email dispatch
+When the first `start_login()` call crashed (500), `_login_in_progress` stayed `True`. The second call returned `{"status":"otp_required","message":"already in progress..."}` **without clicking "Send Code"** — no OTP email was ever sent. The frontend showed the OTP input and the user waited for a phantom email.
+
+### #3 — Page closed during Oura navigation redirects
+Oura's login flow triggers multi-step navigation redirects. After clicking "Continue" or "Send Code", the Playwright page object was invalidated. Subsequent calls to `self.page.wait_for_timeout()` / `wait_for_load_state()` raised `Target page, context or browser has been closed`.
+
+### #4 — `_is_logged_in()` rejected the Oura OAuth redirect chain
+After successful OTP submission, Oura redirects through:
 ```
-POST /api/automation/start-login
-Body: {"email":"henderson.daniel10@yahoo.com"}
-Response: 500 {"detail": ""}
+moi.ouraring.com/authn/.../enter-otp
+  → oauth-authorize (code exchange)
+  → membership.ouraring.com/login?code=...   ← contains "login"!
+  → membership.ouraring.com/  (dashboard)
 ```
+The check `"login" not in url` falsely rejected the transient redirect URL, so the backend kept retrying login even though the user was authenticated.
 
-### Second call (login in progress):
+### #5 — Cookie consent banner blocked download button
+Oura's export page at `membership.ouraring.com/data-export` shows a cookie consent overlay on first visit. The download button (`button[aria-label='Download data']`) exists but is **not visible** until the banner is dismissed. The old code had no cookie dismissal logic.
+
+### #6 — Session path lost between process restarts
+`storage_state_path` used `os.getcwd()` which varies by launch context:
+- When launched from the Electron app: `C:\Users\...\AppData\Local\Programs\Cracked Oura\resources\backend\`
+- When launched from CLI: `C:\Users\...\VSCodeProjects\Cracked-Oura\backend\`
+
+This meant a login session saved by the Electron app was invisible to the CLI test, and vice versa.
+
+### #7 — Parser crash killed the backend process
+The Oura export zip contains a `sleepmodel.csv` file that triggered an unhandled exception in `process_sleep_session()`. Since `process_ingestion()` didn't wrap the parser call in try/except, the exception crashed the entire backend process — even though all the main data (sleep, activity, readiness, heart rate, temperature) had already been successfully ingested.
+
+### #8 — `cleanup()` crashed on already-closed resources
+`automator.cleanup()` called `context.close()`, `browser.close()`, and `playwright.stop()` unconditionally. If any of these were already closed (common after a page-navigation crash), the next call in the chain threw, propagating a fresh crash during cleanup.
+
+---
+
+## Fixes Applied (14 total across 3 files)
+
+### `backend/src/automation.py` (11 fixes)
+
+| # | Method | Fix |
+|---|--------|-----|
+| 1 | `_ensure_browser_installed()` | Use `glob.glob()` to check for actual `.exe` files, not just dir contents |
+| 2 | `initialize()` retry | Inner retry has its own try/except with descriptive error message |
+| 3 | `initialize()` | Wrap `_ensure_browser_installed()` call in try/except |
+| 4 | `start_login()` | On duplicate call, cleanup and **restart** the flow (clicks "Send Code" again) |
+| 5 | `_is_logged_in()` | Accept `ouraring.com` URLs without `authn`/`login`/`enter-otp` |
+| 6 | `submit_otp()` | Wait up to 20s with polling for Oura's redirect chain to complete |
+| 7 | `submit_otp()` | Expand error text to include `"Incorrect or expired code"`, `"try again"` |
+| 8 | `submit_otp()` | Remove `dispatch_event('input')` that raced with Oura's auto-submit JS |
+| 9 | `_check_otp_screen()` + `_click_submit()` | Use `_ensure_page_alive()` before every wait to recover from page closures |
+| 10 | `_download_file()` + `_navigate_to_export_page()` | Add `_dismiss_cookie_banners()` to accept cookie consent overlays |
+| 11 | `cleanup()` | Each resource close in its own try/except; null references after close |
+
+### `backend/src/api/main.py` (2 fixes)
+
+| # | Method | Fix |
+|---|--------|-----|
+| 12 | `run_download_existing_task()` + `run_ingestion_task()` | Always reinitialize browser for a fresh session; handle error dicts properly |
+| 13 | `process_ingestion()` | Wrap parser call in try/except — partial failures don't crash the process |
+
+### `backend/src/api/routes.py` (1 fix)
+
+| # | Method | Fix |
+|---|--------|-----|
+| 14 | `run_full_sync_task()` | Wrap parser call in try/except for resilience |
+
+### New infrastructure
+
+| Addition | Purpose |
+|----------|---------|
+| `_ensure_page_alive()` | Recovers from page closure by grabbing latest page from context. Called before any `page.wait_*()` |
+| `_dismiss_cookie_banners()` | Clicks "Accept All Cookies" / "Accept Necessary" / etc. on known consent button patterns |
+| Session path fix | `storage_state_path` now uses `get_user_data_dir()` → `AppData\Roaming\CrackedOura\oura_session.json` |
+
+---
+
+## Oura Login Flow (current, verified)
+
 ```
-POST /api/automation/start-login
-Response: 200 {"status":"otp_required","message":"Login already in progress. Check your email for the code."}
-```
+1. POST /api/automation/start-login  {"email":"user@example.com"}
+   └─ Playwright browser launches
+   └─ Navigates to membership.ouraring.com/login
+   └─ Fills input[name='username'], clicks button[type='submit']
+   └─ Clicks button[name='selectedId'] ("Send code") on intermediate page
+   └─ Returns {"status":"otp_required","message":"OTP required"}
+   └─ Oura sends 6-digit code to user's email
 
-### Clear session:
-```
-POST /api/automation/clear-session
-Response: 200 {"status":"info","message":"No session found to clear."}
-```
+2. User enters code → POST /api/automation/submit-otp  {"otp":"123456","action":"run"}
+   └─ Fills input[name='otp'], clicks #submit-button
+   └─ Waits for Oura redirect chain (up to 20s)
+   └─ On success: saves session, spawns run_ingestion_task or run_download_existing_task
+   └─ Returns {"status":"success","message":"OTP Accepted. Resuming..."}
 
-### After clear, fresh call:
-```
-POST /api/automation/start-login
-Response: 500 {"detail": ""}
-```
-
-## Root Cause Analysis
-
-The backend's `OuraAutomator.start_login()` in `backend/src/automation.py:122` is raising an exception with an empty message. The route handler at `backend/src/api/routes.py:200` catches it and returns `HTTPException(status_code=500, detail=str(e))`, but `str(e)` is empty.
-
-Likely causes:
-1. **Playwright browser corrupted** — The bundled Chromium browser may have been invalidated by the electron-builder rebuild. The app packages a PyInstaller-built `backend.exe` which bundles Playwright's Chromium. If the browser binaries are mismatched or corrupted, Playwright fails silently.
-2. **Session state file corruption** — `backend/src/automation.py:153` references `self.storage_state_path`. If this file exists but is corrupted, `context.storage_state()` or `browser.new_context()` may fail.
-3. **Playwright driver mismatch** — The PyInstaller bundle may have bundled a different Playwright version than what the venv has, causing driver/browser version mismatch.
-4. **Oura login page changed** — Oura may have updated their login flow, breaking the selectors in `_perform_login_actions()` (line 214: `input[name='username']`).
-
-## What Was NOT Changed
-
-The UI redesign did **not** modify:
-- `backend/src/automation.py`
-- `backend/src/api/routes.py`
-- `backend/src/api/main.py`
-- `frontend/src/lib/api.ts` (login methods unchanged)
-- `frontend/src/hooks/useChat.ts`
-- Any auth/session logic
-
-Only changes were:
-- `SettingsPanel.tsx` — CSS class updates for glass-morphism styling
-- `index.css` — New glass utility classes
-- Shell replacement (`MainLayout` → `AppShell`)
-
-## Resolution
-
-**Date:** 2026-05-18
-**Fixed by:** Debug session
-**Root cause:** Stale Playwright browser installation directory with empty skeleton files.
-
-### Root Cause (Detailed)
-
-The `OuraAutomator.__init__()` sets `PLAYWRIGHT_BROWSERS_PATH` to a custom directory:
-```
-C:\Users\daniel\AppData\Roaming\CrackedOura\browsers
-```
-
-This path contained stale versioned subdirectories (e.g., `chromium_headless_shell-1208/` and `chromium-1208/`) from a previous Playwright installation. These directories had only marker files (`INSTALLATION_COMPLETE`, `DEPENDENCIES_VALIDATED`) and an empty browser executable directory — the actual `chrome-headless-shell.exe` was missing.
-
-The old `_ensure_browser_installed()` check:
-```python
-if not force and os.path.exists(self.browser_dir) and os.listdir(self.browser_dir):
-    return
-```
-This checked **whether any files exist** in the browser dir at all. Since the empty skeleton directories existed, it returned without installing. The subsequent `chromium.launch()` call failed because the executable didn't exist at the custom path.
-
-When the launch failed, `initialize()` caught the error and called `_ensure_browser_installed(force=True)`, which attempted to install Chromium via the internal Playwright driver CLI. However, if this subprocess install also failed (or the `compute_driver_executable()` / `get_driver_env()` approach had issues), the exception propagated up uncaught with an empty message.
-
-### Changes Made
-
-#### 1. `backend/src/automation.py` — `_ensure_browser_installed()` hardened
-
-Instead of checking if the directory has **any** contents, the method now globs for the actual browser executable file:
-```python
-headless_exes = glob.glob(os.path.join(self.browser_dir, "chromium_headless_shell-*",
-                                        "chrome-headless-shell-win64", "chrome-headless-shell.exe"))
-chrome_exes = glob.glob(os.path.join(self.browser_dir, "chromium-*",
-                                      "chrome-win64", "chrome.exe"))
-if headless_exes or chrome_exes:
-    return
-```
-This prevents false positives from stale empty skeleton directories.
-
-#### 2. `backend/src/automation.py` — `initialize()` retry improved
-
-The inner retry block now has its own `try/except` with a descriptive error message:
-```python
-try:
-    self.browser = await self.playwright.chromium.launch(...)
-except Exception as e2:
-    logger.error(f"Browser launch still failed after reinstall: {e2}", exc_info=True)
-    raise Exception(f"Browser launch failed after reinstall: {e2}") from e2
+3. Background task navigates to membership.ouraring.com/data-export
+   └─ Dismisses cookie banner
+   └─ Finds download button, clicks, saves zip to AppData\Roaming\CrackedOura\
+   └─ Parses zip into SQLite database
+   └─ Updates status to "Idle"
 ```
 
-#### 3. `backend/src/automation.py` — `_ensure_browser_installed()` in `initialize()` wrapped
+---
 
-The call in `initialize()` is now wrapped in a try/except to ensure errors are logged with full context:
-```python
-try:
-    await self._ensure_browser_installed()
-except Exception as e:
-    logger.error(f"Browser installation check failed: {e}", exc_info=True)
-    raise Exception(f"Failed to ensure Playwright browser is installed: {e}")
+## Data Verification (2026-05-19)
+
+```
+Database: C:\Users\daniel\AppData\Roaming\CrackedOura\oura_database.db
+
+  sleep              1,152 records
+  activity           1,188 records
+  readiness          1,156 records
+  resilience           730 records
+  sleep_session      1,248 records
+  heart_rate     1,019,288 records
+  temperature    1,502,334 records
+  cardiovascular_age   725 records
 ```
 
-#### 4. `backend/src/automation.py` — Duplicate login restart instead of stale message
+---
 
-When `start_login()` is called while `_login_in_progress` is `True` (e.g., after a failed first attempt left the flag set), the old code returned a stale "already in progress" message without actually clicking "Send code" again — meaning no email was dispatched. The new code cleans up the existing session and restarts fresh:
-```python
-if self._login_in_progress:
-    logger.warning("Login already in progress — cleaning up and restarting.")
-    await self.cleanup()
-    self._login_in_progress = False
+## Deployment
+
+All fixes compiled via PyInstaller into `backend.exe` and deployed to:
+```
+C:\Users\daniel\AppData\Local\Programs\Cracked Oura\resources\backend\backend.exe
 ```
 
-#### 5. `backend/src/automation.py` — `_is_logged_in()` relaxed for Oura's redirect chain
+## Lessons Learned
 
-After successful OTP, Oura redirects through: `enter-otp` → `oauth-authorize` → `membership.ouraring.com/login` (transient, with auth code in URL) → `membership.ouraring.com/` (dashboard). The old check rejected any URL containing "login", causing it to miss the final dashboard URL. The new check also accepts `ouraring.com` URLs without `authn`/`login`/`enter-otp`.
+1. **Never trust directory existence as proof of installation.** Stale marker files from interrupted installs produce false positives. Always check for the actual binary.
 
-#### 6. `backend/src/automation.py` — OTP submit wait improved
+2. **CWD-dependent paths break in desktop apps.** Electron spawns child processes with unpredictable CWD. Use `%APPDATA%`-based paths for any persistent state.
 
-After submitting OTP, the code now waits up to 20s total for Oura's multi-step redirect chain to complete, polling every second:
-```python
-for _ in range(5):
-    if self._is_logged_in():
-        break
-    await self.page.wait_for_timeout(1000)
-    await self.page.wait_for_load_state("networkidle", timeout=5000)
-```
+3. **Cookie consent overlays are automation kryptonite.** Any headless browser automation of a GDPR-compliant site must handle consent banners before interacting with page elements. Logging visible buttons when a selector fails is invaluable for diagnosing this.
 
-#### 7. `backend/src/automation.py` — Error text detection expanded
+4. **Page closures are normal during SPA navigation.** Playwright's page object can become invalid during redirects. A safe `_ensure_page_alive()` helper avoids cascading failures.
 
-Added missing OTP error messages: `"Incorrect or expired code"` and `"try again"` to match actual Oura error text.
+5. **Ingestion should be defensive.** A malformed CSV file in an Oura export zip shouldn't crash the entire backend. Wrap ingestion in try/except and report partial success.
 
-#### 8. `backend/src/automation.py` — Removed duplicate `dispatch_event` on OTP input
-
-Oura's OTP page has auto-submit JS that triggers when 6 digits are entered. The old code called `dispatch_event('input')` after `fill()`, which could race with the auto-submit and cause double-submission. Replaced with a simple `wait_for_timeout(1500)` to let the auto-submit settle naturally.
-
-### Immediate Fix Applied
-
-Running `playwright install chromium` from the backend venv downloaded the browser binaries to the custom path, which immediately resolved the HTTP 500 issue.
-
-The hardened checks above prevent recurrence when the browser directory has stale marker files.
-
-## Verification
-
-All login flow paths verified:
-1. ✅ First `start_login()` call returns `{"status": "otp_required", "message": "OTP required"}`
-2. ✅ Second (duplicate) call now **restarts** the flow and clicks "Send code" again (sends new email)
-3. ✅ `clear_session()` resets state and allows fresh logins
-4. ✅ OTP input page at `moi.ouraring.com/authn/authentication/email_otp_moi/enter-otp` has `input[name='otp']` visible and `#submit-button`
-5. ✅ Browser detection correctly finds v1208 executables via glob patterns
-6. ✅ No HTTP 500 errors during login flow
-7. ✅ Error text "Incorrect or expired code" now recognized
-
-## Debugging Steps for Senior Dev
-
-1. **Run backend standalone** to see actual error output:
-   ```bash
-   cd backend
-   .\venv\Scripts\python.exe -m uvicorn backend.src.api.main:app --host 127.0.0.1 --port 8000 --reload
-   ```
-   Then trigger login from the app and check console for the actual Python traceback.
-
-2. **Check Playwright browser installation:**
-   ```bash
-   cd backend
-   .\venv\Scripts\python.exe -m playwright install chromium
-   ```
-
-3. **Check session state file:**
-   ```powershell
-   Get-ChildItem "$env:APPDATA\CrackedOura" -Filter "*.json"
-   ```
-   If `storage_state.json` exists, try deleting it and retrying login.
-
-4. **Check if bundled backend.exe works:**
-   The installed app at `C:\Users\daniel\AppData\Local\Programs\Cracked Oura\resources\backend\backend.exe` is a PyInstaller bundle. It may have a different Playwright/browser state than the dev venv. Test:
-   ```powershell
-   & "C:\Users\daniel\AppData\Local\Programs\Cracked Oura\resources\backend\backend.exe"
-   ```
-   Then check if the standalone backend can login.
-
-## Workaround
-
-Use **Mobile Sync** instead of browser-based login:
-- Settings → Mobile Sync → Enable
-- This uses token-based auth and does not require Playwright or OTP
-
-## Files to Investigate
-
-- `backend/src/automation.py` — `start_login()`, `login()`, `_perform_login_actions()`
-- `backend/src/api/routes.py` — `start_login` endpoint
-- `backend/src/config.py` — Session state path configuration
-- `backend/venv/Lib/site-packages/playwright` — Playwright installation state
-- `C:\Users\daniel\AppData\Roaming\CrackedOura\` — Session storage files
+6. **Cleanup must be idempotent.** Calling `close()` on already-closed browser resources is a common failure mode. Each resource should be in its own try/except.
