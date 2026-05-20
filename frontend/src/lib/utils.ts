@@ -1,6 +1,18 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+/**
+ * Parse backend datetime string "YYYY-MM-DD HH:MM:SS" as local time.
+ * Using new Date("2026-05-20T09:41:12") is ambiguous — some JS runtimes
+ * treat ISO strings without timezone as UTC, producing wrong relative times.
+ */
+export function parseLocalDate(str: string): Date {
+    const [datePart, timePart] = str.split(' ');
+    const [y, m, d] = datePart.split('-').map(Number);
+    const [h, min, s] = (timePart || '00:00:00').split(':').map(Number);
+    return new Date(y, m - 1, d, h, min, s || 0);
+}
+
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }

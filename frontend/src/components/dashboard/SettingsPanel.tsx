@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Loader2, Copy, LogOut, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, parseLocalDate } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { api, type AutomationStatusResponse, type MobileSyncSettings } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
@@ -107,6 +107,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     // Auto-download when ready
                     handleAutoDownload();
                 } else if (data.status === 'Idle') {
+                    // Refresh mobile sync settings to get updated latest_day
+                    api.getMobileSyncSettings()
+                        .then(ms => setMobileSync(ms))
+                        .catch(() => {});
                     if (pollRef.current) clearInterval(pollRef.current);
                     setLoading(false);
                     // Full refresh of all status data including mobile sync
@@ -317,7 +321,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                         {isLoggedIn && automation?.lastRun && (
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>
-                                    Last sync {formatDistanceToNow(new Date(automation.lastRun.replace(' ', 'T')), { addSuffix: true })}
+                                    Last sync {formatDistanceToNow(parseLocalDate(automation.lastRun), { addSuffix: true })}
                                 </span>
                                 {mobileSync?.latest_day && (
                                     <span className="font-medium text-foreground">
@@ -330,7 +334,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                         {/* Reassurance message when logged in */}
                         {isLoggedIn && !isExporting && !isWaitingForOtp && (
                             <p className="text-xs text-score-green bg-score-green/10 rounded-md px-3 py-2">
-                                You're all set! Data syncs automatically every day{automation?.nextRun ? ` at ${new Date(automation.nextRun.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}. Click "Sync now" if you want fresh data immediately.
+                                You're all set! Data syncs automatically every day{automation?.nextRun ? ` at ${parseLocalDate(automation.nextRun).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}. Click "Sync now" if you want fresh data immediately.
                             </p>
                         )}
 
@@ -426,7 +430,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
                     {automation?.nextRun && (
                         <p className="text-xs text-muted-foreground">
-                            Next auto-sync: {formatDistanceToNow(new Date(automation.nextRun.replace(' ', 'T')), { addSuffix: true })}
+                            Next auto-sync: {formatDistanceToNow(parseLocalDate(automation.nextRun), { addSuffix: true })}
                         </p>
                     )}
 

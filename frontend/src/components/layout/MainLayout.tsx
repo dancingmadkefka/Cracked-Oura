@@ -15,7 +15,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, isToday, formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, parseLocalDate } from "@/lib/utils";
 import type { Dashboard } from "@/types";
 import { ModeToggle } from "@/components/mode-toggle";
 
@@ -142,7 +142,7 @@ export function MainLayout({
                                             <span
                                                 className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] text-white/40"
                                                 title={syncInfo.lastRun
-                                                    ? `Last synced: ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
+                                                    ? `Last synced: ${formatDistanceToNow(parseLocalDate(syncInfo.lastRun))} ago`
                                                     : "Never synced"}
                                             >
                                                 <span className={cn(
@@ -152,7 +152,7 @@ export function MainLayout({
                                                     syncInfo.lastRun ? "bg-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.4)]" : "bg-white/20"
                                                 )} />
                                                 {syncInfo.lastRun
-                                                    ? `Synced ${formatDistanceToNow(new Date(syncInfo.lastRun.replace(' ', 'T')))} ago`
+                                                    ? `Synced ${formatDistanceToNow(parseLocalDate(syncInfo.lastRun))} ago`
                                                     : "Not synced"}
                                             </span>
                                         )}
