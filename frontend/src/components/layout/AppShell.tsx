@@ -19,7 +19,7 @@ import { api } from '@/lib/api';
 import { buildDaySummary } from '@/lib/day-summary';
 import { format } from 'date-fns';
 import { Check, Edit2, PanelRightOpen, Plus, RefreshCw, Sparkles } from 'lucide-react';
-import type { Message } from '@/hooks/useChat';
+import type { Message, ChatThread } from '@/hooks/useChat';
 import type { AppView } from '@/types/app-view';
 import type { Dashboard, WidgetInstance } from '@/types';
 
@@ -53,10 +53,15 @@ interface AppShellProps {
   setActivePanel: (p: 'none' | 'settings' | 'editor' | 'chat') => void;
   updateActiveDashboard: (updates: Partial<Dashboard>) => void;
 
+  threads: ChatThread[];
+  activeThreadId: string | null;
   messages: Message[];
   isLoading: boolean;
   sendMessage: (msg: string) => void;
-  clearHistory: () => void;
+  clearActiveThread: () => void;
+  createThread: () => string;
+  deleteThread: (id: string) => void;
+  switchThread: (id: string) => void;
   onNavigateToAi: () => void;
 }
 
@@ -88,10 +93,15 @@ export function AppShell({
   activePanel,
   setActivePanel,
   updateActiveDashboard,
+  threads,
+  activeThreadId,
   messages,
   isLoading,
   sendMessage,
-  clearHistory,
+  clearActiveThread,
+  createThread,
+  deleteThread,
+  switchThread,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
@@ -196,10 +206,15 @@ export function AppShell({
       case 'ai':
         return (
           <AIAnalystView
+            threads={threads}
+            activeThreadId={activeThreadId}
             messages={messages}
             isLoading={isLoading}
             onSend={sendMessage}
-            onClear={clearHistory}
+            onClear={clearActiveThread}
+            onCreateThread={createThread}
+            onDeleteThread={deleteThread}
+            onSwitchThread={switchThread}
           />
         );
       default:
@@ -313,9 +328,14 @@ export function AppShell({
         <div className="relative z-20">
           <ChatPanel
             onClose={() => setActivePanel('none')}
+            threads={threads}
+            activeThreadId={activeThreadId}
             messages={messages}
             isLoading={isLoading}
             onSend={sendMessage}
+            onCreateThread={createThread}
+            onDeleteThread={deleteThread}
+            onSwitchThread={switchThread}
           />
         </div>
       )}

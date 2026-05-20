@@ -34,7 +34,17 @@ function DashboardApp() {
     retryConnection,
   } = useDashboard();
 
-  const { messages, isLoading, sendMessage, clearHistory } = useChat();
+  const {
+    threads,
+    activeThreadId,
+    messages,
+    isLoading,
+    createThread,
+    deleteThread,
+    switchThread,
+    sendMessage,
+    clearActiveThread,
+  } = useChat();
 
   const syncStatus = syncInfo ? { status: syncInfo.status, lastRun: syncInfo.lastRun } : null;
 
@@ -73,10 +83,15 @@ function DashboardApp() {
       activePanel={activePanel}
       setActivePanel={(p) => setActivePanel(p as 'none' | 'settings' | 'editor' | 'chat')}
 
+      threads={threads}
+      activeThreadId={activeThreadId}
       messages={messages}
       isLoading={isLoading}
       sendMessage={sendMessage}
-      clearHistory={clearHistory}
+      clearActiveThread={clearActiveThread}
+      createThread={createThread}
+      deleteThread={deleteThread}
+      switchThread={switchThread}
       onNavigateToAi={() => setActiveView('ai')}
 
       data={data}

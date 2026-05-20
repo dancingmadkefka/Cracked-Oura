@@ -2,21 +2,40 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Loader2, Bot, User } from "lucide-react";
+import { X, Send, Loader2, Bot, User, MessageSquare, Plus, ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Message } from "@/hooks/useChat";
+import type { Message, ChatThread } from "@/hooks/useChat";
 import { ThoughtsDisplay } from "@/components/dashboard/ThoughtsDisplay";
 
 interface ChatPanelProps {
     onClose: () => void;
+    threads: ChatThread[];
+    activeThreadId: string | null;
     messages: Message[];
     isLoading: boolean;
     onSend: (message: string) => void;
+    onCreateThread: () => void;
+    onDeleteThread: (id: string) => void;
+    onSwitchThread: (id: string) => void;
 }
 
-export function ChatPanel({ onClose, messages, isLoading, onSend }: ChatPanelProps) {
+export function ChatPanel({
+    onClose,
+    threads,
+    activeThreadId,
+    messages,
+    isLoading,
+    onSend,
+    onCreateThread,
+    onDeleteThread,
+    onSwitchThread,
+}: ChatPanelProps) {
     const [input, setInput] = useState("");
+    const [threadMenuOpen, setThreadMenuOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    const activeThread = threads.find(t => t.id === activeThreadId);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -24,28 +43,102 @@ export function ChatPanel({ onClose, messages, isLoading, onSend }: ChatPanelPro
         }
     }, [messages]);
 
+    // Close menu on outside click
+    useEffect(() => {
+        if (!threadMenuOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setThreadMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [threadMenuOpen]);
+
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
-
         onSend(input.trim());
         setInput("");
     };
 
     return (
         <div className="w-[400px] border-l bg-card flex flex-col h-full shadow-xl z-20">
-            <div className="p-4 border-b flex items-center justify-between bg-muted/30">
-                <div className="flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-primary" />
-                    <div>
-                        <h2 className="text-sm font-semibold">AI Assistant</h2>
-                        <p className="text-xs text-muted-foreground">Ask about your health data</p>
-                    </div>
+            {/* Header */}
+            <div className="p-3 border-b flex items-center gap-2 bg-muted/30">
+                {/* Thread Selector */}
+                <div className="flex-1 min-w-0 relative" ref={menuRef}>
+                    <button
+                        onClick={() => setThreadMenuOpen(!threadMenuOpen)}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-left"
+                    >
+                        <MessageSquare className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-medium truncate">
+                            {activeThread?.title || 'AI Assistant'}
+                        </span>
+                        <ChevronDown className={cn(
+                            "h-3.5 w-3.5 text-white/40 ml-auto shrink-0 transition-transform",
+                            threadMenuOpen && "rotate-180"
+                        )} />
+                    </button>
+
+                    {threadMenuOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-white/[0.08] bg-card shadow-2xl z-50 overflow-hidden">
+                            <div className="max-h-48 overflow-y-auto py-1">
+                                {threads.length === 0 && (
+                                    <p className="text-xs text-white/30 px-3 py-4 text-center">
+                                        No conversations yet
+                                    </p>
+                                )}
+                                {threads.map((thread) => (
+                                    <button
+                                        key={thread.id}
+                                        onClick={() => {
+                                            onSwitchThread(thread.id);
+                                            setThreadMenuOpen(false);
+                                        }}
+                                        className={cn(
+                                            "flex items-center gap-2 w-full px-3 py-2 text-left text-sm transition-colors group",
+                                            thread.id === activeThreadId
+                                                ? "bg-primary/10 text-primary"
+                                                : "text-white/70 hover:bg-white/[0.04]"
+                                        )}
+                                    >
+                                        <MessageSquare className="h-3.5 w-3.5 shrink-0 text-white/30" />
+                                        <span className="truncate flex-1">{thread.title}</span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteThread(thread.id);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/[0.08] text-white/30 hover:text-red-400 transition-all shrink-0"
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                        </button>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="border-t border-white/[0.06] p-1">
+                                <button
+                                    onClick={() => {
+                                        onCreateThread();
+                                        setThreadMenuOpen(false);
+                                    }}
+                                    className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-white/60 hover:bg-white/[0.04] hover:text-white/90 rounded transition-colors"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    New thread
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0">
                     <X className="h-4 w-4" />
                 </Button>
             </div>
 
+            {/* Messages */}
             <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
                     {messages.length === 0 && (
@@ -105,6 +198,7 @@ export function ChatPanel({ onClose, messages, isLoading, onSend }: ChatPanelPro
                 </div>
             </ScrollArea>
 
+            {/* Input */}
             <div className="p-4 border-t bg-background">
                 <form
                     onSubmit={(e) => {
@@ -116,7 +210,7 @@ export function ChatPanel({ onClose, messages, isLoading, onSend }: ChatPanelPro
                     <Input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Ask a question..."
+                        placeholder={activeThread ? "Reply in thread..." : "Ask a question..."}
                         disabled={isLoading}
                         className="flex-1"
                     />
@@ -128,8 +222,3 @@ export function ChatPanel({ onClose, messages, isLoading, onSend }: ChatPanelPro
         </div>
     );
 }
-
-// This component is shared and imported
-// See: components/dashboard/ThoughtsDisplay.tsx
-
-
