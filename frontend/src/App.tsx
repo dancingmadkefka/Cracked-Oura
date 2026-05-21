@@ -43,6 +43,7 @@ function DashboardApp() {
     deleteThread,
     switchThread,
     sendMessage,
+    stopGeneration,
     clearActiveThread,
   } = useChat();
 
@@ -88,6 +89,7 @@ function DashboardApp() {
       messages={messages}
       isLoading={isLoading}
       sendMessage={sendMessage}
+      onStopGeneration={stopGeneration}
       clearActiveThread={clearActiveThread}
       createThread={createThread}
       deleteThread={deleteThread}

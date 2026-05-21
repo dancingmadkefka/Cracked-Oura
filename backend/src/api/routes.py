@@ -8,7 +8,8 @@ import traceback
 from typing import List, Optional, Any
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
@@ -18,7 +19,8 @@ from ..config import config_manager
 from ..database import get_db, SessionLocal
 from ..models import (
     Sleep, Activity, Readiness, Resilience, SleepSession, Workout, Meditation, 
-    RingBattery, HeartRate, Temperature, RingConfiguration, Tag, CardiovascularAge
+    RingBattery, HeartRate, Temperature, RingConfiguration, Tag, CardiovascularAge,
+    ChatThread, ChatMessage
 )
 from .schemas import (
     DayDataResponse,
@@ -59,7 +61,10 @@ MODEL_MAP = {
 
 class ChatRequest(BaseModel):
     message: str
-    history: List[dict] = []
+    thread_id: Optional[str] = None
+
+class CreateThreadRequest(BaseModel):
+    title: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: str
@@ -172,20 +177,216 @@ async def run_full_sync_task(db_session_factory):
 # Chat / Advisor Endpoints
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# Chat / Advisor Endpoints
+# -----------------------------------------------------------------------------
+
+@router.post("/api/chat/threads")
+async def create_thread(req: CreateThreadRequest, db: Session = Depends(get_db)):
+    import secrets
+    thread_id = secrets.token_urlsafe(12)
+    title = req.title or "New conversation"
+    db_thread = ChatThread(id=thread_id, title=title)
+    db.add(db_thread)
+    db.commit()
+    db.refresh(db_thread)
+    return {
+        "id": db_thread.id,
+        "title": db_thread.title,
+        "created_at": db_thread.created_at.isoformat(),
+        "updated_at": db_thread.updated_at.isoformat()
+    }
+
+@router.get("/api/chat/threads")
+async def list_threads(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    result = db.execute(
+        select(ChatThread)
+        .order_by(ChatThread.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    threads = result.scalars().all()
+    return [{
+        "id": t.id,
+        "title": t.title,
+        "created_at": t.created_at.isoformat(),
+        "updated_at": t.updated_at.isoformat()
+    } for t in threads]
+
+@router.get("/api/chat/threads/{thread_id}")
+async def get_thread(thread_id: str, db: Session = Depends(get_db)):
+    thread = db.get(ChatThread, thread_id)
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    
+    messages = []
+    for msg in thread.messages:
+        messages.append({
+            "role": msg.role,
+            "content": msg.content,
+            "thoughts": msg.thoughts,
+            "created_at": msg.created_at.isoformat()
+        })
+        
+    return {
+        "id": thread.id,
+        "title": thread.title,
+        "created_at": thread.created_at.isoformat(),
+        "updated_at": thread.updated_at.isoformat(),
+        "messages": messages
+    }
+
+@router.delete("/api/chat/threads/{thread_id}")
+async def delete_thread(thread_id: str, db: Session = Depends(get_db)):
+    thread = db.get(ChatThread, thread_id)
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    db.delete(thread)
+    db.commit()
+    return {"message": "Thread deleted successfully"}
+
+class AppendMessageRequest(BaseModel):
+    role: str
+    content: str
+    thoughts: Optional[Any] = None
+
+@router.post("/api/chat/threads/{thread_id}/messages")
+async def append_message(thread_id: str, req: AppendMessageRequest, db: Session = Depends(get_db)):
+    thread = db.get(ChatThread, thread_id)
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    db_msg = ChatMessage(
+        thread_id=thread_id,
+        role=req.role,
+        content=req.content,
+        thoughts=req.thoughts
+    )
+    db.add(db_msg)
+    db.commit()
+    return {"message": "Message appended successfully"}
+
 @router.post("/api/advisor/chat")
-async def chat(request: ChatRequest):
+async def chat(
+    request: Request,
+    body: ChatRequest,
+    db: Session = Depends(get_db)
+):
     """
-    Interacts with the AI Advisor (LangChain SQL Agent).
+    Interacts with the AI Advisor with database-backed streaming response.
     """
     try:
         logger.info(f"Incoming Chat Request.")
-        advisor = DataAnalyst()
-            
-        # Append latest user message to history references
-        full_history = request.history + [{"role": "user", "content": request.message}]
         
-        response = advisor.chat(full_history)
-        return response
+        # 1. Fetch or create thread
+        thread_id = body.thread_id
+        if not thread_id:
+            import secrets
+            thread_id = secrets.token_urlsafe(12)
+            db_thread = ChatThread(id=thread_id, title="New conversation")
+            db.add(db_thread)
+            db.commit()
+            db.refresh(db_thread)
+        else:
+            db_thread = db.get(ChatThread, thread_id)
+            if not db_thread:
+                raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # 2. Save user message to database
+        user_msg = ChatMessage(
+            thread_id=thread_id,
+            role="user",
+            content=body.message
+        )
+        db.add(user_msg)
+        
+        # Update thread's updated_at
+        db_thread.updated_at = datetime.utcnow()
+        
+        # If thread title is default "New conversation", rename from first message
+        if db_thread.title == "New conversation" or not db_thread.title:
+            cleaned = body.message.replace('\n', ' ').strip()
+            db_thread.title = cleaned[:37] + "…" if len(cleaned) > 40 else cleaned
+            
+        db.commit()
+        db.refresh(user_msg)
+        
+        user_msg_id = user_msg.id
+        thread_title = db_thread.title
+
+        # 3. Stream generator using separate session to avoid FastAPI dependency closure bugs
+        async def event_generator():
+            stream_db = SessionLocal()
+            try:
+                # Re-fetch thread and user message inside new session
+                t_thread = stream_db.get(ChatThread, thread_id)
+                u_msg = stream_db.get(ChatMessage, user_msg_id)
+                if not t_thread or not u_msg:
+                    yield json.dumps({"type": "error", "message": "Failed to find session records"}) + "\n"
+                    return
+
+                # Send initial thread information
+                yield json.dumps({
+                    "type": "thread_info",
+                    "thread_id": thread_id,
+                    "title": t_thread.title
+                }) + "\n"
+
+                # Build conversation history
+                history_msgs = [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in t_thread.messages
+                    if msg.id != u_msg.id
+                ]
+
+                advisor = DataAnalyst()
+                full_answer = ""
+                all_thoughts = []
+
+                async for chunk in advisor.chat_stream(body.message, history_msgs, request):
+                    if chunk["type"] == "thought":
+                        all_thoughts.append(chunk["thought"])
+                        yield json.dumps(chunk) + "\n"
+                    elif chunk["type"] == "token":
+                        full_answer += chunk["content"]
+                        yield json.dumps(chunk) + "\n"
+                    elif chunk["type"] == "done":
+                        if "response" in chunk:
+                            full_answer = chunk["response"]
+                        if "thoughts" in chunk:
+                            all_thoughts = chunk["thoughts"]
+                    elif chunk["type"] == "error":
+                        yield json.dumps(chunk) + "\n"
+                        return
+
+                # Save assistant response to DB on successful completion
+                if full_answer:
+                    assistant_msg = ChatMessage(
+                        thread_id=thread_id,
+                        role="assistant",
+                        content=full_answer,
+                        thoughts=all_thoughts
+                    )
+                    stream_db.add(assistant_msg)
+                    t_thread.updated_at = datetime.utcnow()
+                    stream_db.commit()
+
+                yield json.dumps({"type": "done", "response": full_answer, "thoughts": all_thoughts}) + "\n"
+
+            except Exception as e:
+                logger.error(f"Error in streaming event generator: {e}")
+                traceback.print_exc()
+                yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+            finally:
+                stream_db.close()
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="application/x-ndjson"
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

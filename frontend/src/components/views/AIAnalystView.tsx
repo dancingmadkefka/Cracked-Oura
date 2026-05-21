@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Bot, User, Trash2, Sparkles, CalendarDays } from 'lucide-react';
+import { Send, Bot, User, Trash2, Sparkles, CalendarDays, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message, ChatThread } from '@/hooks/useChat';
 import { ThoughtsDisplay } from '@/components/dashboard/ThoughtsDisplay';
@@ -16,9 +16,10 @@ interface AIAnalystViewProps {
   messages: Message[];
   isLoading: boolean;
   onSend: (message: string) => void;
+  onStopGeneration?: () => void;
   onClear: () => void;
-  onCreateThread: () => void;
-  onDeleteThread: (id: string) => void;
+  onCreateThread: () => Promise<string>;
+  onDeleteThread: (id: string) => Promise<void>;
   onSwitchThread: (id: string) => void;
 }
 
@@ -35,6 +36,7 @@ export function AIAnalystView({
   messages,
   isLoading,
   onSend,
+  onStopGeneration,
   onClear,
   onCreateThread,
   onDeleteThread,
@@ -190,14 +192,25 @@ export function AIAnalystView({
                 disabled={isLoading}
                 className="flex-1 h-10 text-sm rounded-xl border-white/[0.08] bg-white/[0.04] text-white/80 placeholder:text-white/25"
               />
-              <Button
-                type="submit"
-                size="icon"
-                className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 hover:opacity-90"
-                disabled={isLoading || !input.trim()}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+              {isLoading ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl bg-red-600 hover:bg-red-700 text-white shrink-0"
+                  onClick={onStopGeneration}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 hover:opacity-90 shrink-0"
+                  disabled={!input.trim()}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              )}
             </form>
           </div>
         </div>

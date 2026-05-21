@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function ThoughtsDisplay({ thoughts }: { thoughts: any[] }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    const sqlStep = thoughts.find(t => t.tool === 'run_sql');
+    const sqlStep = thoughts.find(t => t.tool === 'execute_query');
     const sqlQuery = sqlStep?.params?.query;
 
     return (

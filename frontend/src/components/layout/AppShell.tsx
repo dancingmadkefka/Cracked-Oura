@@ -58,9 +58,10 @@ interface AppShellProps {
   messages: Message[];
   isLoading: boolean;
   sendMessage: (msg: string) => void;
+  onStopGeneration: () => void;
   clearActiveThread: () => void;
-  createThread: () => string;
-  deleteThread: (id: string) => void;
+  createThread: () => Promise<string>;
+  deleteThread: (id: string) => Promise<void>;
   switchThread: (id: string) => void;
   onNavigateToAi: () => void;
 }
@@ -98,6 +99,7 @@ export function AppShell({
   messages,
   isLoading,
   sendMessage,
+  onStopGeneration,
   clearActiveThread,
   createThread,
   deleteThread,
@@ -215,6 +217,7 @@ export function AppShell({
             onCreateThread={createThread}
             onDeleteThread={deleteThread}
             onSwitchThread={switchThread}
+            onStopGeneration={onStopGeneration}
           />
         );
       default:
@@ -336,6 +339,7 @@ export function AppShell({
             onCreateThread={createThread}
             onDeleteThread={deleteThread}
             onSwitchThread={switchThread}
+            onStopGeneration={onStopGeneration}
           />
         </div>
       )}

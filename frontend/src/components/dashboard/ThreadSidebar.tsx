@@ -8,8 +8,8 @@ interface ThreadSidebarProps {
     threads: ChatThread[];
     activeThreadId: string | null;
     onSwitch: (id: string) => void;
-    onCreate: () => void;
-    onDelete: (id: string) => void;
+    onCreate: () => Promise<string>;
+    onDelete: (id: string) => Promise<void>;
     onRename?: (id: string, title: string) => void;
 }
 

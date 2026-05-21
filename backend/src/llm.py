@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List
+from fastapi import Request
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -311,6 +312,107 @@ class DataAnalyst:
                 "response": f"I encountered an error: {str(e)}",
                 "thoughts": thoughts + [{"step": 99, "type": "error", "content": str(e)}],
             }
+
+    async def chat_stream(
+        self, query: str, history: List[Dict[str, str]], request: Request
+    ):
+        """
+        Stream the agent pipeline steps and token-by-token answer chunks.
+        """
+        thoughts: List[Dict[str, Any]] = []
+        full_history = history + [{"role": "user", "content": query}]
+        context = self._build_history_context(full_history)
+
+        try:
+            # Step 1 — PLAN
+            if await request.is_disconnected():
+                logger.info("Client disconnected before Plan step.")
+                return
+            tables = self._step_plan(query, context, thoughts)
+            yield {"type": "thought", "thought": thoughts[-1]}
+
+            # Step 2 — SCHEMA
+            if await request.is_disconnected():
+                logger.info("Client disconnected before Schema step.")
+                return
+            schema = self._step_schema(tables, thoughts)
+            yield {"type": "thought", "thought": thoughts[-1]}
+
+            # Step 3 — GENERATE SQL
+            if await request.is_disconnected():
+                logger.info("Client disconnected before Generate SQL step.")
+                return
+            sql_query = self._step_generate_sql(query, schema, context, thoughts)
+            yield {"type": "thought", "thought": thoughts[-1]}
+
+            # Step 4 — VALIDATE
+            if await request.is_disconnected():
+                logger.info("Client disconnected before Validate step.")
+                return
+            safe_sql = self._step_validate(sql_query, thoughts)
+            yield {"type": "thought", "thought": thoughts[-1]}
+
+            # Step 5 — EXECUTE
+            if await request.is_disconnected():
+                logger.info("Client disconnected before Execute step.")
+                return
+            result = self._step_execute(safe_sql, thoughts)
+            yield {"type": "thought", "thought": thoughts[-1]}
+
+            # Step 6 — SYNTHESIZE (with token streaming)
+            if await request.is_disconnected():
+                logger.info("Client disconnected before Synthesize step.")
+                return
+
+            ctx_block = f"\n\nConversation history:\n{context}\n\n" if context else "\n\n"
+            prompt = (
+                f"You are an Oura Ring data analyst. A user asked a question, you ran a SQL query, "
+                f"and got results. Provide a clear, natural language answer. Be concise but informative.\n\n"
+                f"Respond in plain text only. Do NOT use JSON, markdown code blocks, or backticks.\n"
+                f"If this is a follow-up question, reference the conversation history for context.\n"
+                f"Do not repeat yourself if the answer was already given in a previous turn.\n{ctx_block}"
+                f"Current user question: \"{query}\"\n"
+                f"SQL: {safe_sql}\n"
+                f"Results:\n{result}\n\n"
+                f"Answer:"
+            )
+
+            system_text = (
+                f"You are an expert Oura Ring Data Analyst. "
+                f"Today is {self.today}. "
+                f"You have access to a SQLite database with Oura health data. "
+                f"Follow the output format requested in each prompt exactly."
+            )
+            messages = [
+                SystemMessage(content=system_text),
+                HumanMessage(content=prompt),
+            ]
+
+            full_answer = ""
+            
+            async for chunk in self.llm.astream(messages):
+                if await request.is_disconnected():
+                    logger.info("Client disconnected during final response streaming.")
+                    return
+                content = chunk.content if hasattr(chunk, "content") else str(chunk)
+                if content:
+                    full_answer += content
+                    yield {"type": "token", "content": content}
+
+            full_answer = self._strip_markdown_fences(full_answer)
+
+            thoughts.append({
+                "step": 6,
+                "type": "tool_result",
+                "content": "Synthesized final answer.",
+            })
+            yield {"type": "thought", "thought": thoughts[-1]}
+            yield {"type": "done", "response": full_answer, "thoughts": thoughts}
+
+        except Exception as e:
+            logger.exception("Streaming agent loop failed")
+            yield {"type": "error", "message": str(e)}
+
 
     # -------------------------------------------------------------------------
     # Pipeline Steps

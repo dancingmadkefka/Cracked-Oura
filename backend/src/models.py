@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
-from sqlalchemy import String, Float, Date, DateTime, JSON, Text, Integer, Boolean
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, Float, Date, DateTime, JSON, Text, Integer, Boolean, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     pass
@@ -198,3 +198,37 @@ class CardiovascularAge(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     day: Mapped[date] = mapped_column(Date, unique=True, index=True)
     vascular_age: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+
+# --- Chat persistence models ---
+
+class ChatThread(Base):
+    __tablename__ = "chat_thread"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    title: Mapped[str] = mapped_column(String, default="New conversation")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Cascade deletes all messages if the thread is deleted
+    messages: Mapped[List["ChatMessage"]] = relationship(
+        "ChatMessage",
+        back_populates="thread",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ChatMessage.id"
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_message"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    thread_id: Mapped[str] = mapped_column(String, ForeignKey("chat_thread.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String)  # 'user' | 'assistant'
+    content: Mapped[str] = mapped_column(Text)
+    thoughts: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    thread: Mapped["ChatThread"] = relationship("ChatThread", back_populates="messages")
+

@@ -145,6 +145,23 @@ If the phone cannot connect:
 - Confirm the token in the phone matches the desktop token
 - Confirm the chosen port is reachable through local firewall rules
 
+## Sync Failure Diagnostics
+
+When a sync attempt fails the Android app now reports the precise cause for each
+configured server address. The `Settings` screen renders a `Last error` line
+followed by a bullet per attempted URL, for example:
+
+- `100.x.y.z:8037 refused the connection. Nothing is listening on that host:port.`
+- `192.168.178.25:8037 did not respond before the timeout. The address is unreachable from this network.`
+
+In `Auto-detect` mode both the LAN and Tailscale addresses are tried, in
+fastest-reachable-first order. Terminal failures (`401`, `403`, `404`, `503`,
+TLS, invalid URL) stop the retry loop because they apply equally to every URL.
+The classified reasons (`DnsFailure`, `ConnectionRefused`, `ConnectionTimeout`,
+`NoRouteToHost`, `TokenRejected`, `EndpointMissing`, `ServerNotEnabled`,
+`SslFailure`, `ServerError`, `NetworkError`) are also written to logcat under
+the `Repository` tag for `adb logcat` debugging.
+
 ## Android App Behavior
 
 The Android app currently includes:

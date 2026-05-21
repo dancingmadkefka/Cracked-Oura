@@ -13,6 +13,18 @@ export interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     thoughts?: any[];
+    created_at?: string;
+}
+
+export interface ChatThread {
+    id: string;
+    title: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ChatThreadWithMessages extends ChatThread {
+    messages: ChatMessage[];
 }
 
 export interface MobileSyncSettings {
@@ -174,15 +186,107 @@ export const api = {
         return res.json();
     },
 
+    // --- Chat Threads ---
+    getThreads: async (): Promise<ChatThread[]> => {
+        const res = await fetch(`${BASE_URL}/api/chat/threads`);
+        if (!res.ok) throw new Error('Failed to fetch chat threads');
+        return res.json();
+    },
+
+    getThread: async (id: string): Promise<ChatThreadWithMessages> => {
+        const res = await fetch(`${BASE_URL}/api/chat/threads/${id}`);
+        if (!res.ok) throw new Error('Failed to fetch chat thread');
+        return res.json();
+    },
+
+    createThread: async (title?: string): Promise<ChatThread> => {
+        const res = await fetch(`${BASE_URL}/api/chat/threads`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title })
+        });
+        if (!res.ok) throw new Error('Failed to create chat thread');
+        return res.json();
+    },
+
+    deleteThread: async (id: string): Promise<void> => {
+        const res = await fetch(`${BASE_URL}/api/chat/threads/${id}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to delete chat thread');
+    },
+
+    appendMessageToThread: async (threadId: string, role: string, content: string, thoughts?: any[]): Promise<void> => {
+        const res = await fetch(`${BASE_URL}/api/chat/threads/${threadId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role, content, thoughts })
+        });
+        if (!res.ok) throw new Error('Failed to append message to thread');
+    },
+
     // --- Chat ---
-    sendChatMessage: async (message: string, history: ChatMessage[], context?: any) => {
+    sendChatMessageStream: async (
+        message: string,
+        threadId: string | null,
+        onChunk: (chunk: any) => void,
+        signal?: AbortSignal
+    ): Promise<void> => {
         const res = await fetch(`${BASE_URL}/api/advisor/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, history, context })
+            body: JSON.stringify({ message, thread_id: threadId }),
+            signal
         });
-        if (!res.ok) throw new Error('Chat request failed');
-        return res.json();
+
+        if (!res.ok) {
+            const errText = await res.text().catch(() => 'Chat request failed');
+            throw new Error(errText || 'Chat request failed');
+        }
+
+        if (!res.body) {
+            throw new Error('ReadableStream not supported by browser or response has empty body');
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+
+                // Save last incomplete line back to buffer
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.trim()) {
+                        try {
+                            const chunk = JSON.parse(line);
+                            onChunk(chunk);
+                        } catch (e) {
+                            console.error('Failed to parse line-delimited JSON stream chunk:', e, line);
+                        }
+                    }
+                }
+            }
+
+            // Parse final buffer if any
+            if (buffer.trim()) {
+                try {
+                    const chunk = JSON.parse(buffer);
+                    onChunk(chunk);
+                } catch (e) {
+                    console.error('Failed to parse final chunk:', e, buffer);
+                }
+            }
+        } finally {
+            reader.releaseLock();
+        }
     },
 
     // --- Connection Health ---

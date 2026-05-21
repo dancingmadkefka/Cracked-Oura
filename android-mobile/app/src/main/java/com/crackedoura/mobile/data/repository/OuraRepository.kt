@@ -6,14 +6,16 @@ import com.crackedoura.mobile.data.local.DailySummaryEntity
 import com.crackedoura.mobile.data.local.OuraDao
 import com.crackedoura.mobile.data.local.WorkoutEntity
 import com.crackedoura.mobile.data.remote.MobileApiService
+import com.crackedoura.mobile.data.remote.MobileSyncResponseDto
 import com.crackedoura.mobile.data.remote.toEntity
 import com.crackedoura.mobile.util.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import java.io.IOException
-import retrofit2.HttpException
 
-class SyncFailureException(message: String) : IllegalStateException(message)
+class SyncFailureException(
+    message: String,
+    val reason: SyncFailureReason? = null,
+) : IllegalStateException(message)
 
 class OuraRepository(
     private val database: AppDatabase,
@@ -50,72 +52,113 @@ class OuraRepository(
         AppLogger.i(TAG, "Settings saved windowDays=$windowDays")
     }
 
-    private suspend fun resolveServerUrl(): String {
-        val settings = preferencesRepository.currentSettings()
-        return when (settings.preferredNetwork) {
-            "local" -> settings.localServerUrl
-            "tailscale" -> settings.tailscaleServerUrl
-            else -> autoDetect(settings)
+    private suspend fun candidatesInOrder(settings: SyncSettings): List<String> {
+        val raw = when (settings.preferredNetwork) {
+            "local" -> listOfNotNull(settings.localServerUrl.takeIf { it.isNotBlank() })
+            "tailscale" -> listOfNotNull(settings.tailscaleServerUrl.takeIf { it.isNotBlank() })
+            else -> listOfNotNull(
+                settings.localServerUrl.takeIf { it.isNotBlank() },
+                settings.tailscaleServerUrl.takeIf { it.isNotBlank() },
+            )
         }
-    }
+        if (raw.size <= 1 || settings.token.isBlank()) return raw
 
-    private suspend fun autoDetect(settings: SyncSettings): String {
-        val candidates = listOfNotNull(
-            settings.localServerUrl.takeIf { it.isNotBlank() },
-            settings.tailscaleServerUrl.takeIf { it.isNotBlank() },
-        )
-        if (candidates.isEmpty()) return ""
-        if (candidates.size == 1) return candidates.first()
-
-        val token = settings.token
-        if (token.isBlank()) return settings.lastUsedUrl ?: candidates.first()
-
-        val results = ServerReachabilityDetector.probeAll(candidates, token)
-        val fastest = results.firstOrNull { it.reachable }
-        return if (fastest != null) fastest.url else (settings.lastUsedUrl ?: candidates.first())
+        val probes = ServerReachabilityDetector.probeAll(raw, settings.token)
+        val reachable = probes.filter { it.reachable }.map { it.url }
+        val unreachable = raw.filter { url -> reachable.none { it == url } }
+        return reachable + unreachable
     }
 
     suspend fun syncNow(): Result<Unit> {
-        return try {
-            val settings = preferencesRepository.currentSettings()
-            val serverUrl = resolveServerUrl()
-            if (serverUrl.isBlank()) {
-                return Result.failure(SyncFailureException("No server URL configured."))
-            }
-
-            val validated = SyncConfigValidator.validatedConfigForSave(serverUrl, settings.token, settings.windowDays)
-
-            AppLogger.i(TAG, "Starting sync url=${validated.serverUrl} windowDays=${validated.windowDays}")
-
-            apiService.ping("${validated.serverUrl}/api/mobile/ping", validated.token)
-            val response = apiService.sync(
-                url = "${validated.serverUrl}/api/mobile/sync",
-                token = validated.token,
-                windowDays = validated.windowDays,
-            )
-
-            val summaries = response.days.map { it.toEntity() }
-            val workouts = response.workouts.map { it.toEntity() }
-
-            persistSyncResponse(
-                summaries = summaries,
-                workouts = workouts,
-                availableStartDay = response.availableStartDay,
-            )
-
-            preferencesRepository.recordSyncSuccess(response.generatedAt)
-            preferencesRepository.recordSuccessfulUrl(validated.serverUrl)
-            AppLogger.i(TAG, "Sync finished summaries=${summaries.size} workouts=${workouts.size}")
-            Result.success(Unit)
-        } catch (throwable: CancellationException) {
-            AppLogger.i(TAG, "Sync cancelled")
-            throw throwable
-        } catch (throwable: Exception) {
-            val userMessage = throwable.toUserMessage()
-            preferencesRepository.recordSyncFailure(userMessage)
-            AppLogger.e(TAG, "Sync failed: $userMessage", throwable)
-            Result.failure(SyncFailureException(userMessage))
+        val settings = try {
+            preferencesRepository.currentSettings()
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
+            val reason = SyncFailureReason.Unknown(null, "Could not read sync settings: ${t.message ?: t::class.java.simpleName}")
+            return fail(reason)
         }
+
+        if (settings.token.isBlank()) {
+            return fail(SyncFailureReason.MissingToken("Paste the sync token from the desktop app in Settings."))
+        }
+
+        val candidates = try {
+            candidatesInOrder(settings)
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
+            AppLogger.w(TAG, "Reachability probe threw, falling back to raw candidate order", t)
+            when (settings.preferredNetwork) {
+                "local" -> listOfNotNull(settings.localServerUrl.takeIf { it.isNotBlank() })
+                "tailscale" -> listOfNotNull(settings.tailscaleServerUrl.takeIf { it.isNotBlank() })
+                else -> listOfNotNull(
+                    settings.localServerUrl.takeIf { it.isNotBlank() },
+                    settings.tailscaleServerUrl.takeIf { it.isNotBlank() },
+                )
+            }
+        }
+        if (candidates.isEmpty()) {
+            return fail(SyncFailureReason.NoServerConfigured(noServerMessage(settings.preferredNetwork)))
+        }
+
+        AppLogger.i(TAG, "Sync starting candidates=${candidates.joinToString()} windowDays=${settings.windowDays}")
+
+        val perUrlFailures = mutableListOf<Pair<String, SyncFailureReason>>()
+        for ((index, candidate) in candidates.withIndex()) {
+            AppLogger.i(TAG, "Sync attempt ${index + 1}/${candidates.size} url=$candidate")
+            try {
+                val response = attemptSync(candidate, settings)
+                preferencesRepository.recordSyncSuccess(response.generatedAt)
+                preferencesRepository.recordSuccessfulUrl(candidate)
+                AppLogger.i(TAG, "Sync succeeded url=$candidate")
+                return Result.success(Unit)
+            } catch (t: CancellationException) {
+                AppLogger.i(TAG, "Sync cancelled url=$candidate")
+                throw t
+            } catch (t: Throwable) {
+                val reason = SyncFailureDiagnoser.classify(t, candidate)
+                AppLogger.w(TAG, "Sync attempt failed url=$candidate reason=${reason::class.java.simpleName}: ${reason.userMessage}", t)
+                perUrlFailures += candidate to reason
+                if (reason.isTerminal()) break
+            }
+        }
+
+        val combined = if (perUrlFailures.size == 1) perUrlFailures.first().second
+        else SyncFailureReason.AllCandidatesFailed(perUrlFailures.toList())
+        return fail(combined)
+    }
+
+    private suspend fun attemptSync(url: String, settings: SyncSettings): MobileSyncResponseDto {
+        val validated = SyncConfigValidator.validatedConfigForSave(url, settings.token, settings.windowDays)
+        apiService.ping("${validated.serverUrl}/api/mobile/ping", validated.token)
+        val response = apiService.sync(
+            url = "${validated.serverUrl}/api/mobile/sync",
+            token = validated.token,
+            windowDays = validated.windowDays,
+        )
+        val summaries = response.days.map { it.toEntity() }
+        val workouts = response.workouts.map { it.toEntity() }
+        persistSyncResponse(
+            summaries = summaries,
+            workouts = workouts,
+            availableStartDay = response.availableStartDay,
+        )
+        AppLogger.i(TAG, "Sync persisted url=${validated.serverUrl} summaries=${summaries.size} workouts=${workouts.size}")
+        return response
+    }
+
+    private suspend fun fail(reason: SyncFailureReason): Result<Unit> {
+        val message = reason.userMessage
+        preferencesRepository.recordSyncFailure(message)
+        AppLogger.e(TAG, "Sync failed: $message")
+        return Result.failure(SyncFailureException(message, reason))
+    }
+
+    private fun noServerMessage(preferredNetwork: String): String = when (preferredNetwork) {
+        "local" -> "No local LAN server URL configured. Add one in Settings."
+        "tailscale" -> "No Tailscale server URL configured. Add one in Settings."
+        else -> "No server URLs configured. Add at least one address in Settings."
     }
 
     private suspend fun persistSyncResponse(
@@ -134,28 +177,6 @@ class OuraRepository(
                 dao.deleteSummariesBefore(availableStartDay)
                 dao.deleteWorkoutsBefore(availableStartDay)
             }
-        }
-    }
-
-    private fun Throwable.toUserMessage(): String {
-        return when (this) {
-            is IllegalArgumentException -> message ?: "Check the sync settings and try again."
-            is HttpException -> when (code()) {
-                401 -> "The sync token was rejected. Generate a fresh token in the desktop app."
-                403 -> "The mobile API request was blocked by the desktop app."
-                404 -> "The mobile sync endpoint was not found. Confirm the desktop app was rebuilt."
-                503 -> "Mobile sync is not enabled on the desktop app yet."
-                else -> "Desktop sync server returned HTTP ${code()}. Check the desktop logs."
-            }
-            is IOException -> message?.let { raw ->
-                when {
-                    "port 80" in raw -> "The server URL is missing port 8037. Use the full desktop address."
-                    "failed to connect" in raw -> "Could not reach the desktop server. Check the IP address, port, and firewall."
-                    "timeout" in raw.lowercase() -> "The desktop server did not respond in time."
-                    else -> "Network error while contacting the desktop server."
-                }
-            } ?: "Network error while contacting the desktop server."
-            else -> message ?: "Sync failed for an unknown reason."
         }
     }
 }

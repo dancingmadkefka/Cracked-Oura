@@ -14,8 +14,9 @@ interface ChatPanelProps {
     messages: Message[];
     isLoading: boolean;
     onSend: (message: string) => void;
-    onCreateThread: () => void;
-    onDeleteThread: (id: string) => void;
+    onStopGeneration: () => void;
+    onCreateThread: () => Promise<string>;
+    onDeleteThread: (id: string) => Promise<void>;
     onSwitchThread: (id: string) => void;
 }
 
@@ -26,6 +27,7 @@ export function ChatPanel({
     messages,
     isLoading,
     onSend,
+    onStopGeneration,
     onCreateThread,
     onDeleteThread,
     onSwitchThread,
@@ -214,7 +216,10 @@ export function ChatPanel({
                         disabled={isLoading}
                         className="flex-1"
                     />
-                    <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                    <Button type="button" variant="destructive" size="icon" onClick={onStopGeneration} className="shrink-0" style={{ display: isLoading ? 'inline-flex' : 'none' }}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                    <Button type="submit" size="icon" disabled={!input.trim()} className="shrink-0" style={{ display: isLoading ? 'none' : 'inline-flex' }}>
                         <Send className="h-4 w-4" />
                     </Button>
                 </form>

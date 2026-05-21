@@ -1,12 +1,14 @@
 package com.crackedoura.mobile.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -239,11 +241,16 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = uiState.settings.lastError?.let { "Last error: $it" } ?: "No sync errors.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (uiState.settings.lastError != null) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val lastError = uiState.settings.lastError
+                if (lastError == null) {
+                    Text(
+                        text = "No sync errors.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    SyncDiagnosticsBlock(lastError)
+                }
             }
         }
 
@@ -311,6 +318,39 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SyncDiagnosticsBlock(lastError: String) {
+    val trimmed = lastError.trim()
+    val headerEnd = trimmed.indexOf('\n')
+    val header: String
+    val bullets: List<String>
+    if (headerEnd < 0) {
+        header = trimmed
+        bullets = emptyList()
+    } else {
+        header = trimmed.substring(0, headerEnd).trim()
+        bullets = trimmed.substring(headerEnd + 1)
+            .lines()
+            .map { it.trim().removePrefix("•").trim() }
+            .filter { it.isNotBlank() }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Last error: $header",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.tertiary,
+            fontWeight = FontWeight.SemiBold,
+        )
+        bullets.forEach { line ->
+            Text(
+                text = "• $line",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }
