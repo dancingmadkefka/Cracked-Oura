@@ -24,6 +24,8 @@ data class SyncSettings(
     val lastError: String? = null,
     val darkMode: Boolean? = null,
     val lastUsedUrl: String? = null,
+    /** First name shown in personalised greeting. */
+    val userName: String = "",
     /** Kept for legacy migration. Read-only. */
     val _legacyServerUrl: String = "",
 )
@@ -40,6 +42,7 @@ class SyncPreferencesRepository(private val context: Context) {
         val lastError = stringPreferencesKey("last_error")
         val darkMode = stringPreferencesKey("dark_mode")
         val lastUsedUrl = stringPreferencesKey("last_used_url")
+        val userName = stringPreferencesKey("user_name")
     }
 
     val settings: Flow<SyncSettings> = context.syncPreferencesDataStore.data
@@ -67,6 +70,7 @@ class SyncPreferencesRepository(private val context: Context) {
                     else -> null
                 },
                 lastUsedUrl = preferences[Keys.lastUsedUrl],
+                userName = preferences[Keys.userName].orEmpty(),
                 _legacyServerUrl = legacyUrl,
             )
         }
@@ -112,6 +116,12 @@ class SyncPreferencesRepository(private val context: Context) {
             } else {
                 preferences[Keys.darkMode] = enabled.toString()
             }
+        }
+    }
+
+    suspend fun saveUserName(name: String) {
+        context.syncPreferencesDataStore.edit { preferences ->
+            preferences[Keys.userName] = name.trim()
         }
     }
 

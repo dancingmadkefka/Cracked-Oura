@@ -282,7 +282,7 @@ private fun TrendSummaryTile(
 ) {
     Box(
         modifier = modifier
-            .background(color.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+            .background(color.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
             .padding(16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -295,11 +295,12 @@ private fun TrendSummaryTile(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
+                color = Color.White,
             )
             Text(
                 text = caption,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.40f),
             )
         }
     }
@@ -332,8 +333,8 @@ private fun TrendChart(
                 yLabels.forEach { label ->
                     Text(
                         text = metric.formatter(label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.45f),
                     )
                 }
             }
@@ -343,7 +344,7 @@ private fun TrendChart(
                     .height(220.dp)
                     .semantics { contentDescription = "${metric.title} chart, tap to select a day" }
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f),
+                        color = Color.White.copy(alpha = 0.04f),
                         shape = RoundedCornerShape(22.dp),
                     )
                     .onSizeChanged { chartWidth = it.width }
@@ -445,18 +446,18 @@ private fun TrendChart(
         ) {
             Text(
                 text = formatDayMonth(points.firstOrNull()?.insight?.day),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.45f),
             )
             Text(
                 text = points.getOrNull(points.lastIndex / 2)?.insight?.day?.let(::formatDayMonth) ?: "--",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.45f),
             )
             Text(
                 text = formatDayMonth(points.lastOrNull()?.insight?.day),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.45f),
             )
         }
     }
@@ -489,6 +490,7 @@ private fun SelectedDayCallout(
                         text = formatDayLabel(insight.day),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
+                        color = Color.White,
                     )
                     Text(
                         text = metricValue?.let(metric.formatter) ?: "--",
@@ -503,7 +505,7 @@ private fun SelectedDayCallout(
             Text(
                 text = selectedDayContext(metric, insight),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.50f),
             )
         }
     }
@@ -526,11 +528,12 @@ private fun RecentValueRow(
                 text = formatDayLabel(insight.day),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = Color.White,
             )
             Text(
                 text = selectedDayContext(metric, insight),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.50f),
             )
         }
         Row(
@@ -541,6 +544,7 @@ private fun RecentValueRow(
                 text = metric.formatter(value),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
+                color = Color.White,
             )
             Text(
                 text = "View",

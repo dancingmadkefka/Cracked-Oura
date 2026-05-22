@@ -1,12 +1,13 @@
 package com.crackedoura.mobile.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,8 +28,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -38,13 +45,63 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.crackedoura.mobile.ui.screens.AIAnalystScreen
 import com.crackedoura.mobile.ui.screens.DayDetailScreen
 import com.crackedoura.mobile.ui.screens.OverviewScreen
 import com.crackedoura.mobile.ui.screens.SettingsScreen
+import com.crackedoura.mobile.ui.screens.SleepScreen
 import com.crackedoura.mobile.ui.screens.TrendsScreen
 import com.crackedoura.mobile.ui.theme.Coral
+import com.crackedoura.mobile.ui.theme.Night
 import com.crackedoura.mobile.ui.theme.Ocean
-import com.crackedoura.mobile.ui.theme.Sun
+
+// ── Custom line-art icons ──────────────────────────────────────────────────────
+
+/** Crescent moon — line-art, matches the glassmorphism mockup's Sleep tab icon. */
+private val MoonCrescentIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "MoonCrescent",
+        defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f,
+    ).apply {
+        path(
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = 1.8f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        ) {
+            moveTo(21f, 12.79f)
+            arcTo(9f, 9f, 0f, isMoreThanHalf = true, isPositiveArc = true, x1 = 11.21f, y1 = 3f)
+            arcTo(7f, 7f, 0f, isMoreThanHalf = false, isPositiveArc = false, x1 = 21f, y1 = 12.79f)
+            close()
+        }
+    }.build()
+}
+
+/** Pulse / trend line — line-art, matches the glassmorphism mockup's Trends tab icon. */
+private val PulseChartIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "PulseChart",
+        defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f,
+    ).apply {
+        path(
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = 1.8f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        ) {
+            moveTo(2f, 12f)
+            lineTo(6f, 12f)
+            lineTo(9f, 3f)
+            lineTo(15f, 21f)
+            lineTo(18f, 12f)
+            lineTo(22f, 12f)
+        }
+    }.build()
+}
+
+// ── Navigation destinations ───────────────────────────────────────────────────
 
 private sealed class AppDestination(
     val route: String,
@@ -54,16 +111,30 @@ private sealed class AppDestination(
 ) {
     data object Overview : AppDestination(
         route = "overview",
-        label = "Overview",
-        title = "Overview",
-        icon = { Icon(Icons.Outlined.Home, contentDescription = "Overview") },
+        label = "Today",
+        title = "Today",
+        icon = { Icon(Icons.Outlined.Home, contentDescription = "Today") },
+    )
+
+    data object Sleep : AppDestination(
+        route = "sleep",
+        label = "Sleep",
+        title = "Sleep",
+        icon = { Icon(MoonCrescentIcon, contentDescription = "Sleep") },
     )
 
     data object Trends : AppDestination(
         route = "trends",
         label = "Trends",
         title = "Trends",
-        icon = { Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = "Trends") },
+        icon = { Icon(PulseChartIcon, contentDescription = "Trends") },
+    )
+
+    data object Ai : AppDestination(
+        route = "ai",
+        label = "AI",
+        title = "AI Analyst",
+        icon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI Analyst") },
     )
 
     data object Settings : AppDestination(
@@ -94,7 +165,9 @@ fun OuraMobileApp(viewModel: MainViewModel) {
     val navController = rememberNavController()
     val primaryDestinations = listOf(
         AppDestination.Overview,
+        AppDestination.Sleep,
         AppDestination.Trends,
+        AppDestination.Ai,
         AppDestination.Settings,
     )
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -108,51 +181,63 @@ fun OuraMobileApp(viewModel: MainViewModel) {
         snackbarHostState.showSnackbar(message)
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Ocean.copy(alpha = 0.08f),
-                        Sun.copy(alpha = 0.05f),
-                        Coral.copy(alpha = 0.08f),
-                    ),
+    Box(modifier = Modifier.fillMaxSize().background(Night)) {
+        // Atmospheric radial glow overlays — Ocean top-left, Coral bottom-right
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Ocean.copy(alpha = 0.18f), Color.Transparent),
+                    center = Offset(0f, 0f),
+                    radius = size.width * 0.85f,
                 ),
-            ),
-    ) {
+                radius = size.width * 0.85f,
+                center = Offset(0f, 0f),
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Coral.copy(alpha = 0.12f), Color.Transparent),
+                    center = Offset(size.width, size.height),
+                    radius = size.width * 0.75f,
+                ),
+                radius = size.width * 0.75f,
+                center = Offset(size.width, size.height),
+            )
+        }
+
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = when (currentRoute) {
-                                AppDestination.DayDetail.route -> formatDayLabel(detailDay)
-                                else -> currentPrimary?.title ?: "Cracked Oura"
-                            },
-                        )
-                    },
-                    navigationIcon = {
-                        if (!showBottomBar) {
+                if (!showBottomBar) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = when (currentRoute) {
+                                    AppDestination.DayDetail.route -> formatDayLabel(detailDay)
+                                    else -> currentPrimary?.title ?: "Cracked Oura"
+                                },
+                            )
+                        },
+                        navigationIcon = {
                             IconButton(onClick = { navController.popBackStack() }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                                     contentDescription = "Back",
                                 )
                             }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp).copy(alpha = 0.76f),
-                    ),
-                )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                                .copy(alpha = 0.82f),
+                        ),
+                    )
+                }
             },
             bottomBar = {
                 if (showBottomBar) {
                     NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.95f),
+                        containerColor = Night.copy(alpha = 0.92f),
+                        contentColor = Color.White,
                     ) {
                         primaryDestinations.forEach { item ->
                             NavigationBarItem(
@@ -207,6 +292,15 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                     )
                 }
 
+                composable(AppDestination.Sleep.route) {
+                    SleepScreen(
+                        padding = padding,
+                        insights = insights,
+                        isRefreshing = uiState.isSyncing,
+                        onRefresh = viewModel::syncNow,
+                    )
+                }
+
                 composable(AppDestination.Trends.route) {
                     TrendsScreen(
                         padding = padding,
@@ -228,6 +322,10 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                     )
                 }
 
+                composable(AppDestination.Ai.route) {
+                    AIAnalystScreen(padding = padding)
+                }
+
                 composable(AppDestination.Settings.route) {
                     SettingsScreen(
                         padding = padding,
@@ -235,6 +333,7 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                         onSaveSettings = viewModel::saveSettings,
                         onSaveAndSync = viewModel::saveSettingsAndSync,
                         onDarkModeToggle = viewModel::setDarkMode,
+                        onSaveUserName = viewModel::saveUserName,
                     )
                 }
 

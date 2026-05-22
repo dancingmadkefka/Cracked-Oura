@@ -42,7 +42,11 @@ fun SettingsScreen(
     onSaveSettings: (String, String, String, String, Int) -> Unit,
     onSaveAndSync: (String, String, String, String, Int) -> Unit,
     onDarkModeToggle: (Boolean?) -> Unit,
+    onSaveUserName: (String) -> Unit,
 ) {
+    var userName by rememberSaveable(uiState.settings.userName) {
+        mutableStateOf(uiState.settings.userName)
+    }
     var localServerUrl by rememberSaveable(uiState.settings.localServerUrl) {
         mutableStateOf(uiState.settings.localServerUrl)
     }
@@ -96,6 +100,32 @@ fun SettingsScreen(
                     else -> "Ready to sync."
                 },
             )
+        }
+
+        item {
+            SectionCard(title = "Your profile") {
+                OutlinedTextField(
+                    value = userName,
+                    onValueChange = { userName = it },
+                    label = { Text("Display name") },
+                    placeholder = { Text("e.g. Alex") },
+                    supportingText = { Text("Used in your personalised greeting on the Today screen.") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        capitalization = KeyboardCapitalization.Words,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                Button(
+                    onClick = { onSaveUserName(userName) },
+                    enabled = userName != uiState.settings.userName,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Text("Save name")
+                }
+            }
         }
 
         item {
@@ -239,14 +269,14 @@ fun SettingsScreen(
                     text = uiState.settings.lastSyncAt?.let { "Last sync: ${formatDateTimeLabel(it)}" }
                         ?: "No completed sync yet.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.45f),
                 )
                 val lastError = uiState.settings.lastError
                 if (lastError == null) {
                     Text(
                         text = "No sync errors.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.45f),
                     )
                 } else {
                     SyncDiagnosticsBlock(lastError)

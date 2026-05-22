@@ -1,26 +1,52 @@
 package com.crackedoura.mobile.ui.screens
 
+import android.app.DatePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.crackedoura.mobile.ui.ActivityGoalBasis
 import com.crackedoura.mobile.ui.DailyInsight
@@ -36,7 +62,12 @@ import com.crackedoura.mobile.ui.formatPercent
 import com.crackedoura.mobile.ui.formatSignedDecimal
 import com.crackedoura.mobile.ui.formatSignedDelta
 import com.crackedoura.mobile.ui.formatTimeOnly
-import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
+import com.crackedoura.mobile.ui.theme.Coral
+import com.crackedoura.mobile.ui.theme.Emerald
+import com.crackedoura.mobile.ui.theme.Ocean
+import java.time.LocalDate
+import java.time.LocalTime
+import kotlinx.coroutines.launch
 
 @Composable
 fun OverviewScreen(
@@ -49,11 +80,14 @@ fun OverviewScreen(
     onOpenDayDetail: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
 ) {
-    val latest = insights.lastOrNull()
-    val timeline = insights.takeLast(14).reversed()
     val hasToken = uiState.settings.token.isNotBlank()
     val hasServer = uiState.settings.localServerUrl.isNotBlank() || uiState.settings.tailscaleServerUrl.isNotBlank()
-    val latestWorkouts = latest?.workouts.orEmpty()
+    val timeline = insights.takeLast(14).reversed()
+
+    val pagerState = rememberPagerState(
+        initialPage = (insights.size - 1).coerceAtLeast(0),
+    ) { insights.size.coerceAtLeast(1) }
+    val scope = rememberCoroutineScope()
 
     SwipeRefresh(
         state = rememberSwipeRefreshState(isRefreshing),
@@ -67,229 +101,262 @@ fun OverviewScreen(
             )
         },
     ) {
-    LazyColumn(
-        modifier = Modifier.padding(padding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            HeroCard(
-                eyebrow = "Overview",
-                title = latest?.let { "Latest day ${formatDayLabel(it.day)}" } ?: "No mobile cache yet",
-                subtitle = when {
-                    uiState.settings.lastSyncAt != null && latest != null ->
-                        "Last sync ${formatDateTimeLabel(uiState.settings.lastSyncAt)} \u2022 ${insights.size} cached days."
-                    uiState.settings.lastSyncAt != null ->
-                        "Last sync ${formatDateTimeLabel(uiState.settings.lastSyncAt)}."
-                    else -> "Sync with the desktop app to see your latest data."
-                },
+        if (insights.isEmpty()) {
+            LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    StatusPill(
-                        label = if (uiState.isSyncing) "Sync running" else "Manual sync",
-                        tone = if (uiState.isSyncing) Color(0xFFFFD166) else Color.White,
-                    )
-                    if (insights.isNotEmpty()) {
-                        StatusPill(
-                            label = "${insights.size} days cached",
-                            tone = Color.White,
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = getTimeGreeting().uppercase(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "No data synced yet",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = Color.White,
+                        )
+                        Text(
+                            text = "Sync with the desktop app to get started",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.45f),
                         )
                     }
                 }
-                Button(
-                    onClick = onSync,
-                    enabled = hasServer && hasToken && !uiState.isSyncing,
+                item {
+                    SectionCard(
+                        title = "Nothing synced yet",
+                        subtitle = "Add your server address and token in Settings, then tap Sync.",
+                    ) {
+                        Button(onClick = onNavigateToSettings) { Text("Open Settings") }
+                    }
+                }
+            }
+        } else {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.padding(padding).fillMaxSize(),
+            ) { page ->
+                val current = insights[page]
+                val workouts = current.workouts
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text(
-                        when {
-                            uiState.isSyncing -> "Syncing..."
-                            !hasServer -> "Add desktop address first"
-                            !hasToken -> "Add token in Settings"
-                            else -> "Sync from desktop"
-                        },
-                    )
-                }
-            }
-        }
+                    // Day navigation header
+                    item {
+                        val context = LocalContext.current
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            // Personalised greeting
+                            val userName = uiState.settings.userName.trim()
+                            Text(
+                                text = if (userName.isNotEmpty()) {
+                                    "${getTimeGreeting()}, ${userName.split(" ").first()}."
+                                } else {
+                                    "${getTimeGreeting()}."
+                                },
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            // Date navigation row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(
+                                    onClick = { scope.launch { pagerState.animateScrollToPage(page - 1) } },
+                                    enabled = page > 0,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ChevronLeft,
+                                        contentDescription = "Previous day",
+                                        tint = if (page > 0) Color.White.copy(0.7f) else Color.White.copy(0.2f),
+                                    )
+                                }
+                                Text(
+                                    text = formatDayLabel(current.day),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Center,
+                                )
+                                // Calendar / date-picker icon
+                                IconButton(onClick = {
+                                    val today = LocalDate.now()
+                                    DatePickerDialog(
+                                        context,
+                                        { _, year, month, day ->
+                                            val picked = "%04d-%02d-%02d".format(year, month + 1, day)
+                                            val idx = insights.indexOfFirst { it.day == picked }
+                                            if (idx >= 0) scope.launch { pagerState.animateScrollToPage(idx) }
+                                        },
+                                        today.year, today.monthValue - 1, today.dayOfMonth,
+                                    ).show()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CalendarMonth,
+                                        contentDescription = "Pick date",
+                                        tint = Color.White.copy(alpha = 0.55f),
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { scope.launch { pagerState.animateScrollToPage(page + 1) } },
+                                    enabled = page < insights.size - 1,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ChevronRight,
+                                        contentDescription = "Next day",
+                                        tint = if (page < insights.size - 1) Color.White.copy(0.7f) else Color.White.copy(0.2f),
+                                    )
+                                }
+                            }
+                            // Only show syncing pill — remove the static "N days cached" pill
+                            if (uiState.isSyncing) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    StatusPill(label = "Syncing…", tone = Color(0xFFFFD166))
+                                }
+                            }
+                        }
+                    }
 
-        if (latest == null) {
-            item {
-                SectionCard(
-                    title = "Nothing synced yet",
-                    subtitle = "Add your server address and token in Settings, then tap Sync.",
-                ) {
-                    Button(onClick = onNavigateToSettings) {
-                        Text("Open Settings")
+                    // Core scores — vertical list, ring left / info right
+                    item {
+                        SectionCard(title = "Core Scores") {
+                            Column {
+                                ScoreListRow(
+                                    label = "Readiness",
+                                    score = current.summary.readinessScore,
+                                    detail = current.readinessDelta?.let { "${formatSignedDelta(it)} vs 14d avg" }
+                                        ?: "Building baseline",
+                                    ringColor = Emerald,
+                                )
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                ScoreListRow(
+                                    label = "Sleep",
+                                    score = current.summary.sleepScore,
+                                    detail = formatDurationSeconds(current.totalSleepSeconds),
+                                    ringColor = Ocean,
+                                )
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                                ScoreListRow(
+                                    label = "Activity",
+                                    score = current.summary.activityScore,
+                                    detail = current.summary.steps?.let { "${formatCompactNumber(it)} steps" }
+                                        ?: "No step data",
+                                    ringColor = Coral,
+                                )
+                            }
+                        }
+                    }
+
+                    // Daily Insight
+                    item {
+                        val insight = buildDailyInsight(current)
+                        SectionCard(title = "Daily Insight") {
+                            Text(
+                                text = insight,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.80f),
+                            )
+                        }
+                    }
+
+                    // At a glance — 2×2 grid, no outer card
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "AT A GLANCE",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White.copy(alpha = 0.35f),
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                BriefingTile(
+                                    title = "Sleep debt",
+                                    value = formatDurationHours(current.sleepDebtSeconds),
+                                    caption = current.sleepNeedEstimateSeconds
+                                        ?.let { "Need est. ${formatDurationHours(it)}" }
+                                        ?: "Needs 5 sleep nights",
+                                    accent = Color(0xFF6B5BFF),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                BriefingTile(
+                                    title = "Activity goal",
+                                    value = current.activityGoalProgress?.let { formatPercent(it) } ?: "--",
+                                    caption = current.activityGoalLabel(),
+                                    accent = Color(0xFFFF8B4A),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                BriefingTile(
+                                    title = "HRV vs 14d",
+                                    value = formatSignedDelta(current.hrvDelta, "ms"),
+                                    caption = current.hrvBaseline?.let { "Baseline ${it.toInt()} ms" }
+                                        ?: "Building baseline",
+                                    accent = Color(0xFF19B394),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                BriefingTile(
+                                    title = "Recovery share",
+                                    value = current.recoveryShare?.let { formatPercent(it) } ?: "--",
+                                    caption = current.summary.recoveryHigh?.let { r ->
+                                        "Recovery $r min vs stress ${current.summary.stressHigh ?: 0} min"
+                                    } ?: "--",
+                                    accent = Color(0xFFD75A71),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+
+                    // Timeline strip
+                    item {
+                        SectionCard(title = "Recent 14 Days") {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                items(timeline, key = { it.day }) { insight ->
+                                    TimelineDayCard(
+                                        insight = insight,
+                                        onClick = { onOpenDayDetail(insight.day) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Workouts
+                    item {
+                        SectionCard(title = "Workouts · ${formatDayMonth(current.day)}") {
+                            if (workouts.isEmpty()) {
+                                Text(
+                                    text = "No workouts synced for this day.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.45f),
+                                )
+                            } else {
+                                workouts.forEach { workout ->
+                                    WorkoutSummaryRow(
+                                        title = workout.label
+                                            ?: workout.activity?.replaceFirstChar { it.uppercase() }
+                                            ?: "Workout",
+                                        subtitle = "${formatTimeOnly(workout.startTime)} · ${workout.intensity ?: "Unknown intensity"}",
+                                        trailing = workout.calories?.toInt()?.let { "$it kcal" } ?: "Tracked",
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-            return@LazyColumn
         }
-
-        item {
-            SectionCard(
-                title = "At a glance",
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BriefingTile(
-                        title = "Sleep debt",
-                        value = formatDurationHours(latest.sleepDebtSeconds),
-                        caption = latest.sleepNeedEstimateSeconds?.let {
-                            "Need estimate ${formatDurationHours(it)}"
-                        } ?: "Needs 5 sleep days in the last 14 days",
-                        accent = Color(0xFF6B5BFF),
-                        modifier = Modifier.weight(1f),
-                    )
-                    BriefingTile(
-                        title = "Activity goal",
-                        value = latest.activityGoalProgress?.let { formatPercent(it) } ?: "No target",
-                        caption = latest.activityGoalLabel(),
-                        accent = Color(0xFFFF8B4A),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BriefingTile(
-                        title = "HRV vs 14d baseline",
-                        value = formatSignedDelta(latest.hrvDelta, "ms"),
-                        caption = latest.hrvBaseline?.let { "Baseline ${it.toInt()} ms" } ?: "Baseline builds after enough recent nights",
-                        accent = Color(0xFF19B394),
-                        modifier = Modifier.weight(1f),
-                    )
-                    BriefingTile(
-                        title = "Recovery share",
-                        value = latest.recoveryShare?.let { formatPercent(it) } ?: "--",
-                        caption = latest.summary.recoveryHigh?.let { recovery ->
-                            val stress = latest.summary.stressHigh ?: 0
-                            "Recovery $recovery min vs stress $stress min"
-                        } ?: "--",
-                        accent = Color(0xFFD75A71),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionCard(
-                title = "Recent timeline",
-            ) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(timeline, key = { it.day }) { insight ->
-                        TimelineDayCard(
-                            insight = insight,
-                            onClick = { onOpenDayDetail(insight.day) },
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            SectionCard(
-                title = "Latest day summary",
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OverviewScoreCard(
-                        label = "Sleep score",
-                        value = latest.summary.sleepScore?.toString() ?: "--",
-                        note = latest.totalSleepSeconds?.let { formatDurationSeconds(it) } ?: "No duration",
-                        color = Color(0xFF2B6DFF),
-                        modifier = Modifier.weight(1f),
-                    )
-                    OverviewScoreCard(
-                        label = "Readiness score",
-                        value = latest.summary.readinessScore?.toString() ?: "--",
-                        note = latest.readinessDelta?.let { "${formatSignedDelta(it)} vs 14d baseline" } ?: "Baseline still building",
-                        color = Color(0xFF19B394),
-                        modifier = Modifier.weight(1f),
-                    )
-                    OverviewScoreCard(
-                        label = "Activity score",
-                        value = latest.summary.activityScore?.toString() ?: "--",
-                        note = latest.summary.steps?.let { "${formatCompactNumber(it)} steps" } ?: "No steps",
-                        color = Color(0xFFFF8B4A),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionCard(
-                title = "Sleep detail",
-            ) {
-                StatRow("Total sleep", formatDurationSeconds(latest.totalSleepSeconds))
-                StatRow("Estimated sleep need", formatDurationHours(latest.sleepNeedEstimateSeconds))
-                StatRow("Sleep debt", formatDurationHours(latest.sleepDebtSeconds))
-                StatRow("Nap sleep", formatDurationSeconds(latest.summary.napSleepDuration))
-                StatRow("Sessions counted", latest.summary.sleepSessionCount?.toString() ?: "--")
-                StatRow("Bedtime", "${formatTimeOnly(latest.summary.bedtimeStart)} - ${formatTimeOnly(latest.summary.bedtimeEnd)}")
-                StatRow("Sleep efficiency", latest.summary.sleepEfficiency?.let { "$it%" } ?: "--")
-                StatRow("Deep sleep", formatDurationSeconds(latest.summary.deepSleepDuration))
-                StatRow("REM sleep", formatDurationSeconds(latest.summary.remSleepDuration))
-                StatRow("Awake time", formatDurationSeconds(latest.summary.awakeTime))
-                latest.summary.sleepRecommendation?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionCard(
-                title = "Activity and recovery",
-            ) {
-                StatRow("Steps", latest.summary.steps?.let { formatCompactNumber(it) } ?: "--")
-                StatRow("Active calories", latest.summary.activeCalories?.let { "$it kcal" } ?: "--")
-                StatRow("Total calories", latest.summary.totalCalories?.let { "$it kcal" } ?: "--")
-                StatRow("Distance", formatMeters(latest.summary.equivalentWalkingDistance))
-                StatRow("Target progress", latest.activityGoalProgress?.let { formatPercent(it) } ?: "--")
-                StatRow("Avg HRV", latest.summary.averageHrv?.let { "$it ms" } ?: "--")
-                StatRow("Avg HR", latest.summary.averageHeartRate?.let { "${it.toInt()} bpm" } ?: "--")
-                StatRow("Lowest HR", latest.summary.lowestHeartRate?.let { "$it bpm" } ?: "--")
-                StatRow("Temp deviation", formatSignedDecimal(latest.summary.temperatureDeviation, "\u00B0C"))
-                StatRow("Resilience", latest.summary.resilienceLevel ?: "--")
-                StatRow("Vascular age", latest.summary.vascularAge?.toString() ?: "--")
-                latest.summary.readinessDaySummary?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        item {
-            SectionCard(
-                title = "Workouts for ${formatDayMonth(latest.day)}",
-            ) {
-                if (latestWorkouts.isEmpty()) {
-                    Text(
-                        text = "No workouts synced for this day.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    latestWorkouts.forEach { workout ->
-                        WorkoutSummaryRow(
-                            title = workout.label ?: workout.activity?.replaceFirstChar { it.uppercase() } ?: "Workout",
-                            subtitle = "${formatTimeOnly(workout.startTime)} \u2022 ${workout.intensity ?: "Unknown intensity"}",
-                            trailing = workout.calories?.toInt()?.let { "$it kcal" } ?: "Tracked",
-                        )
-                    }
-                }
-            }
-        }
-
-    }
     }
 }
 
@@ -301,15 +368,14 @@ private fun BriefingTile(
     accent: Color,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .background(
-                color = accent.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(22.dp),
-            )
-            .padding(16.dp),
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.10f)),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.20f)),
     ) {
-        androidx.compose.foundation.layout.Column(
+        Column(
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
@@ -321,59 +387,12 @@ private fun BriefingTile(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
+                color = Color.White,
             )
             Text(
                 text = caption,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun OverviewScoreCard(
-    label: String,
-    value: String,
-    note: String,
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                shape = RoundedCornerShape(22.dp),
-            )
-            .padding(16.dp),
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .background(color.copy(alpha = 0.16f), CircleShape)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = color,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Black,
-            )
-            Text(
-                text = note,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.4f),
             )
         }
     }
@@ -386,24 +405,25 @@ private fun TimelineDayCard(
 ) {
     Box(
         modifier = Modifier
-            .width(124.dp)
+            .width(120.dp)
             .semantics { contentDescription = "Day ${formatDayMonth(insight.day)}, tap to view details" }
             .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-                shape = RoundedCornerShape(22.dp),
+                color = Color.White.copy(alpha = 0.04f),
+                shape = RoundedCornerShape(20.dp),
             )
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(12.dp),
     ) {
-        androidx.compose.foundation.layout.Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = formatDayMonth(insight.day),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.8f),
             )
-            TimelineMiniMetric("Sleep", insight.summary.sleepScore, Color(0xFF2B6DFF))
+            TimelineMiniMetric("Sleep", insight.summary.sleepScore, Color(0xFF1479FF))
             TimelineMiniMetric("Ready", insight.summary.readinessScore, Color(0xFF19B394))
             TimelineMiniMetric("Steps", insight.summary.steps?.let { formatCompactNumber(it) }, Color(0xFFFF8B4A))
         }
@@ -427,8 +447,8 @@ private fun TimelineMiniMetric(
         )
         Text(
             text = "$label ${value ?: "--"}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.6f),
         )
     }
 }
@@ -471,15 +491,65 @@ private fun DailyInsight.activityGoalLabel(): String {
         ActivityGoalBasis.Calories -> {
             val remaining = activityGoalRemaining?.let { "$it kcal left" } ?: "--"
             val target = activityGoalTarget?.let { "Target $it kcal" } ?: remaining
-            "$target \u2022 $remaining"
+            "$target · $remaining"
         }
 
         ActivityGoalBasis.Distance -> {
             val target = activityGoalTarget?.let { formatMeters(it) } ?: "distance target"
             val remaining = activityGoalRemaining?.let { "${formatMeters(it)} left" } ?: "--"
-            "Target $target \u2022 $remaining"
+            "Target $target · $remaining"
         }
 
         null -> "No target set"
     }
+}
+
+private fun getTimeGreeting(): String {
+    val hour = LocalTime.now().hour
+    return when {
+        hour < 12 -> "Good morning"
+        hour < 18 -> "Good afternoon"
+        else -> "Good evening"
+    }
+}
+
+/** Programmatic template engine that produces a 1–2 sentence daily insight from the day's data. */
+private fun buildDailyInsight(insight: DailyInsight): String {
+    val parts = mutableListOf<String>()
+
+    // Readiness lead
+    val readiness = insight.summary.readinessScore
+    if (readiness != null) {
+        parts += when {
+            readiness >= 85 -> "You're in great shape today — readiness is high, so it's a good day to push hard."
+            readiness >= 70 -> "Your body is reasonably recovered; moderate training is well-supported."
+            readiness >= 55 -> "Readiness is below average — consider keeping today's effort light."
+            else -> "Your body needs rest today; readiness is low, so prioritise recovery."
+        }
+    }
+
+    // Sleep quality add-on
+    val sleepScore = insight.summary.sleepScore
+    if (sleepScore != null) {
+        parts += when {
+            sleepScore >= 85 -> "Last night's sleep was excellent — you should feel sharp and energised."
+            sleepScore >= 70 -> "Sleep was solid. A short afternoon rest could top you up further."
+            sleepScore >= 55 -> "Sleep quality was average; hydration and a walk can help offset any fatigue."
+            else -> "Sleep was poor last night — avoid caffeine after noon and aim for an early bedtime."
+        }
+    }
+
+    // HRV callout
+    val delta = insight.hrvDelta
+    if (delta != null && readiness == null) {
+        parts += if (delta >= 5) {
+            "HRV is trending up — your autonomic system is recovering well."
+        } else if (delta <= -5) {
+            "HRV dipped vs your baseline; stress, alcohol, or accumulated fatigue may be factors."
+        } else {
+            "HRV is close to your baseline — you're in a stable recovery state."
+        }
+    }
+
+    return parts.take(2).joinToString(" ").ifBlank { "Sync more days to unlock personalised insights." }
 }

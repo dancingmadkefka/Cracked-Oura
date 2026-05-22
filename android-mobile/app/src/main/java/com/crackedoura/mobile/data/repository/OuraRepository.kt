@@ -41,6 +41,10 @@ class OuraRepository(
         preferencesRepository.saveDarkMode(enabled)
     }
 
+    suspend fun saveUserName(name: String) {
+        preferencesRepository.saveUserName(name)
+    }
+
     suspend fun saveSyncSettings(
         localServerUrl: String,
         tailscaleServerUrl: String,

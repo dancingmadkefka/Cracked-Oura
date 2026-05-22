@@ -1,15 +1,17 @@
 package com.crackedoura.mobile.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -21,11 +23,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -89,19 +94,22 @@ fun SectionCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.06f),
+        ),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White)
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White.copy(alpha = 0.45f),
                     )
                 }
             }
@@ -151,7 +159,8 @@ fun MetricCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -211,12 +220,13 @@ fun StatRow(label: String, value: String) {
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color.White.copy(alpha = 0.50f),
         )
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
+            color = Color.White,
         )
     }
 }
@@ -295,4 +305,186 @@ fun EmptyStateCard(
         modifier = modifier,
         subtitle = body,
     ) {}
+}
+
+/**
+ * A glass-card with a circular arc score ring (canvas-drawn) and a label underneath.
+ * Matches the "Cracked Oura" desktop score ring aesthetic.
+ */
+/**
+ * Horizontal score-ring row matching the glassmorphism mockup:
+ * [Ring 72dp] [Label / Detail text]
+ * Used inside a SectionCard for the "Core Scores" list.
+ */
+@Composable
+fun ScoreListRow(
+    label: String,
+    score: Int?,
+    detail: String,
+    ringColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Circular ring — larger hero size with glow
+        Box(
+            modifier = Modifier.size(88.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                // Glow layer — soft radial bleed behind the ring
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(ringColor.copy(alpha = 0.22f), Color.Transparent),
+                        center = Offset(size.width / 2f, size.height / 2f),
+                        radius = size.width * 0.52f,
+                    ),
+                    radius = size.width * 0.52f,
+                )
+                val strokePx = 9.dp.toPx()
+                val inset = strokePx / 2f
+                val arcSize = Size(size.width - strokePx, size.height - strokePx)
+                // Track arc
+                drawArc(
+                    color = ringColor.copy(alpha = 0.15f),
+                    startAngle = 135f, sweepAngle = 270f, useCenter = false,
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                    topLeft = Offset(inset, inset), size = arcSize,
+                )
+                // Progress arc
+                val progress = (score ?: 0).coerceIn(0, 100) / 100f
+                if (progress > 0f) {
+                    drawArc(
+                        color = ringColor,
+                        startAngle = 135f, sweepAngle = 270f * progress, useCenter = false,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                        topLeft = Offset(inset, inset), size = arcSize,
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = score?.toString() ?: "--",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                )
+                Text(
+                    text = scoreQualityLabel(score),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ringColor,
+                )
+            }
+        }
+        // Info
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.90f),
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.45f),
+            )
+        }
+    }
+}
+
+private fun scoreQualityLabel(score: Int?): String = when {
+    score == null -> ""
+    score >= 85 -> "Optimal"
+    score >= 70 -> "Good"
+    score >= 60 -> "Fair"
+    else -> "Low"
+}
+
+@Composable
+fun ScoreRingCard(
+    label: String,
+    score: Int?,
+    subtitle: String,
+    ringColor: Color,
+    modifier: Modifier = Modifier,
+    ringSize: Int = 84,
+    strokeWidthDp: Int = 9,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.06f),
+        ),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(ringSize.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val strokePx = strokeWidthDp.dp.toPx()
+                    val inset = strokePx / 2f
+                    val arcSize = Size(size.width - strokePx, size.height - strokePx)
+                    val startAngle = 135f
+                    val sweepAngle = 270f
+
+                    // Track arc
+                    drawArc(
+                        color = ringColor.copy(alpha = 0.18f),
+                        startAngle = startAngle,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                        topLeft = Offset(inset, inset),
+                        size = arcSize,
+                    )
+
+                    // Progress arc
+                    val progress = (score ?: 0).coerceIn(0, 100) / 100f
+                    if (progress > 0f) {
+                        drawArc(
+                            color = ringColor,
+                            startAngle = startAngle,
+                            sweepAngle = sweepAngle * progress,
+                            useCenter = false,
+                            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                            topLeft = Offset(inset, inset),
+                            size = arcSize,
+                        )
+                    }
+                }
+                Text(
+                    text = score?.toString() ?: "--",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                )
+            }
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = ringColor,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.45f),
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 }

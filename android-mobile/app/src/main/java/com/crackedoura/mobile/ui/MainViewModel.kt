@@ -123,6 +123,12 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
         }
     }
 
+    fun saveUserName(name: String) {
+        viewModelScope.launch {
+            runCatching { repository.saveUserName(name) }
+        }
+    }
+
     class Factory(private val repository: OuraRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
