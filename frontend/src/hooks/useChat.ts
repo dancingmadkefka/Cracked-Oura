@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api, ChatMessage, ChatThread } from '@/lib/api';
+import { api, type ChatMessage, type ChatThread } from '@/lib/api';
 
 // Re-export types for backward compatibility with consumers that import from this module
 export type { ChatMessage, ChatThread };

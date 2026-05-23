@@ -1,4 +1,7 @@
-const BASE_URL = 'http://localhost:8000';
+// In dev, use empty string so requests are relative and go through Vite's proxy
+// (configured in vite.config.ts). In production builds, the frontend is served by
+// the FastAPI app itself, so relative paths still resolve to the same origin.
+const BASE_URL = '';
 
 export interface AutomationStatusResponse {
     status: string;
