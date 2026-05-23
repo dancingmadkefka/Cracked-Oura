@@ -6,6 +6,7 @@ import {
   Flame,
   ShieldAlert,
   TrendingUp,
+  Compass,
   BookOpen,
   Sparkles,
   Sliders,
@@ -46,7 +47,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'sleep', label: 'Sleep', icon: Moon, section: 'main' },
   { id: 'activity', label: 'Activity', icon: Flame, section: 'main' },
   { id: 'resilience', label: 'Stress & Resilience', icon: ShieldAlert, section: 'main' },
-  { id: 'trends', label: 'Trends & Explorer', icon: TrendingUp, section: 'main' },
+  { id: 'trends', label: 'Trends', icon: TrendingUp, section: 'main' },
+  { id: 'explorer', label: 'Explorer', icon: Compass, section: 'main', badge: 'NEW' },
   { id: 'journal', label: 'Tags & Journal', icon: BookOpen, section: 'main' },
   { id: 'ai', label: 'AI Analyst', icon: Sparkles, section: 'main', badge: 'NEW' },
 ];

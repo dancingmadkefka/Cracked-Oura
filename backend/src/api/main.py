@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from backend.src.api.routes import router
 from backend.src.api.mobile import router as mobile_router
 from backend.src.api.insights import router as insights_router
+from backend.src.api.analysis import router as analysis_router
+from backend.src.api.investigations import router as investigations_router
 from backend.src.database import init_db, SessionLocal
 from backend.src.automation import automator
 from backend.src.ingestion import OuraParser
@@ -77,6 +79,8 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(mobile_router)
 app.include_router(insights_router)
+app.include_router(analysis_router)
+app.include_router(investigations_router)
 
 # --- API Models for Automation ---
 class AutomationConfig(BaseModel):

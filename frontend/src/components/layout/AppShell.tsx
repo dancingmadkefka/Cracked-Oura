@@ -11,6 +11,7 @@ import { ReadinessView } from '@/components/views/ReadinessView';
 import { ActivityView } from '@/components/views/ActivityView';
 import { ResilienceView } from '@/components/views/ResilienceView';
 import { TrendsView } from '@/components/views/TrendsView';
+import { ExplorerView } from '@/components/views/ExplorerView';
 import { JournalView } from '@/components/views/JournalView';
 import { AIAnalystView } from '@/components/views/AIAnalystView';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
@@ -200,6 +201,8 @@ export function AppShell({
         return <ResilienceView />;
       case 'trends':
         return <TrendsView />;
+      case 'explorer':
+        return <ExplorerView />;
       case 'journal':
         return <JournalView />;
       case 'dashboards':

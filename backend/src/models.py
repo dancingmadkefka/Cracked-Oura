@@ -232,3 +232,22 @@ class ChatMessage(Base):
 
     thread: Mapped["ChatThread"] = relationship("ChatThread", back_populates="messages")
 
+
+# --- Phase 2: Saved Investigations ---
+
+class SavedInvestigation(Base):
+    """User-saved analysis snapshot (correlation, anomaly, chart, AI prompt+answer).
+
+    The ``payload`` JSON column intentionally stores the full investigation shape so
+    the read-model can evolve without schema migrations. ``payload`` typically holds:
+    ``{type, x_metric, y_metric, lag_days, method, date_range, prompt, answer, evidence}``.
+    """
+
+    __tablename__ = "saved_investigation"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, default="Untitled investigation")
+    kind: Mapped[str] = mapped_column(String, default="correlation")  # correlation | anomaly | ai | chart
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

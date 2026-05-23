@@ -107,6 +107,65 @@ export interface SyncFreshness {
     days_behind: number | null;
 }
 
+// --- Phase 2: Analysis ---
+export interface MetricSpec {
+    path: string;
+    label: string;
+    unit: string;
+    domain: string;
+    preferred: 'higher' | 'lower' | null;
+    description?: string;
+}
+
+export interface MetricSeriesPoint { day: string; value: number; }
+
+export interface MetricSeries {
+    metric_path: string;
+    label: string;
+    unit: string;
+    date_range: [string, string];
+    sample_count: number;
+    missing_count: number;
+    points: MetricSeriesPoint[];
+}
+
+export interface CorrelationResult {
+    x_metric: string;
+    y_metric: string;
+    lag_days: number;
+    method: string;
+    coefficient: number | null;
+    sample_count: number;
+    paired_dates: Array<[string, string]>;
+    warning: string | null;
+    interpretation: string;
+}
+
+export interface AnomalyResult {
+    metric_path: string;
+    label: string;
+    unit: string;
+    day: string;
+    value: number;
+    baseline_median: number;
+    baseline_mad: number;
+    score: number;
+    direction: 'above' | 'below';
+    severity: 'warning' | 'critical';
+    baseline_window: number;
+    method: string;
+    note: string;
+}
+
+export interface SavedInvestigation {
+    id: string;
+    name: string;
+    kind: string;
+    created_at: string;
+    updated_at: string;
+    payload: Record<string, any> | null;
+}
+
 export interface MobileSyncSettings {
     enabled: boolean;
     token: string;
@@ -419,5 +478,61 @@ export const api = {
         const res = await fetch(`${BASE_URL}/api/insights/sync-freshness`);
         if (!res.ok) throw new Error('Failed to fetch sync freshness');
         return res.json();
+    },
+
+    // --- Analysis (Phase 2) ---
+    getAnalysisCatalog: async (): Promise<MetricSpec[]> => {
+        const res = await fetch(`${BASE_URL}/api/analysis/catalog`);
+        if (!res.ok) throw new Error('Failed to fetch metric catalog');
+        return res.json();
+    },
+
+    getAnalysisSeries: async (metric: string, start: string, end: string): Promise<MetricSeries> => {
+        const q = new URLSearchParams({ metric, start_date: start, end_date: end });
+        const res = await fetch(`${BASE_URL}/api/analysis/series?${q.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch series');
+        return res.json();
+    },
+
+    getCorrelation: async (
+        x: string, y: string, lagDays: number, start: string, end: string, method: 'pearson' | 'spearman' = 'pearson'
+    ): Promise<CorrelationResult> => {
+        const q = new URLSearchParams({
+            x_metric: x, y_metric: y, lag_days: String(lagDays),
+            method, start_date: start, end_date: end,
+        });
+        const res = await fetch(`${BASE_URL}/api/analysis/correlate?${q.toString()}`);
+        if (!res.ok) throw new Error('Failed to compute correlation');
+        return res.json();
+    },
+
+    getAnomalies: async (day: string, windowDays = 7, baselineWindow = 28): Promise<AnomalyResult[]> => {
+        const q = new URLSearchParams({
+            window_days: String(windowDays),
+            baseline_window: String(baselineWindow),
+        });
+        const res = await fetch(`${BASE_URL}/api/analysis/anomalies/${day}?${q.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch anomalies');
+        return res.json();
+    },
+
+    // --- Investigations (Phase 2) ---
+    listInvestigations: async (): Promise<SavedInvestigation[]> => {
+        const res = await fetch(`${BASE_URL}/api/investigations`);
+        if (!res.ok) throw new Error('Failed to list investigations');
+        return res.json();
+    },
+
+    createInvestigation: async (body: { name: string; kind: string; payload: Record<string, any> }): Promise<SavedInvestigation> => {
+        const res = await fetch(`${BASE_URL}/api/investigations`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('Failed to save investigation');
+        return res.json();
+    },
+
+    deleteInvestigation: async (id: string): Promise<void> => {
+        const res = await fetch(`${BASE_URL}/api/investigations/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete investigation');
     },
 };
