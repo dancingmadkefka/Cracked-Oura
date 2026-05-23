@@ -217,13 +217,15 @@ fun OverviewScreen(
                                 }
                             }
                             // Only show syncing pill — remove the static "N days cached" pill
-                            if (uiState.isSyncing) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Center,
-                                ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (uiState.isSyncing) {
                                     StatusPill(label = "Syncing…", tone = Color(0xFFFFD166))
                                 }
+                                SyncFreshnessPill(uiState.syncFreshness)
                             }
                         }
                     }
@@ -258,16 +260,32 @@ fun OverviewScreen(
                         }
                     }
 
-                    // Daily Insight
+                    // Daily Insight (prefer deterministic backend guidance when available for this day)
                     item {
-                        val insight = buildDailyInsight(current)
-                        SectionCard(title = "Daily Insight") {
-                            Text(
-                                text = insight,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.80f),
-                            )
+                        val backendGuidance = uiState.todayInsights
+                            ?.takeIf { it.day == current.day }
+                            ?.guidance
+                        if (backendGuidance != null) {
+                            GuidanceCard(backendGuidance)
+                        } else {
+                            val insight = buildDailyInsight(current)
+                            SectionCard(title = "Daily Insight") {
+                                Text(
+                                    text = insight,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.80f),
+                                )
+                            }
                         }
+                    }
+
+                    // Backend action cards and contributor breakdowns (only for the day matching the sync payload)
+                    val matchedInsights = uiState.todayInsights?.takeIf { it.day == current.day }
+                    if (matchedInsights != null) {
+                        item { ActionCardsList(matchedInsights.actionCards) }
+                        item { ContributorList("Sleep contributors", matchedInsights.contributorsSleep) }
+                        item { ContributorList("Readiness contributors", matchedInsights.contributorsReadiness) }
+                        item { ContributorList("Activity contributors", matchedInsights.contributorsActivity) }
                     }
 
                     // At a glance — 2×2 grid, no outer card

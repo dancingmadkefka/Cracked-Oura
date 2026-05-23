@@ -1,13 +1,18 @@
 package com.crackedoura.mobile.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.crackedoura.mobile.data.local.DailySummaryEntity
 import com.crackedoura.mobile.data.local.WorkoutEntity
+import com.crackedoura.mobile.data.remote.SyncFreshnessDto
+import com.crackedoura.mobile.data.remote.TodayInsightsDto
 import com.crackedoura.mobile.data.repository.OuraRepository
 import com.crackedoura.mobile.data.repository.SyncSettings
+import com.crackedoura.mobile.data.sync.BackgroundSyncScheduler
 import com.crackedoura.mobile.util.AppLogger
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +34,8 @@ data class MainUiState(
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
     val darkMode: Boolean? = null,
+    val todayInsights: TodayInsightsDto? = null,
+    val syncFreshness: SyncFreshnessDto? = null,
 )
 
 class MainViewModel(private val repository: OuraRepository) : ViewModel() {
@@ -41,25 +48,41 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
     private val syncState = MutableStateFlow(SyncUiState())
 
     val uiState: StateFlow<MainUiState> = combine(
-        repository.observeSettings(),
-        repository.observeLatestSummary(),
-        repository.observeRecentSummaries(limit = MAX_SUMMARY_DAYS),
-        repository.observeRecentWorkouts(limit = MAX_WORKOUT_ROWS),
-        syncState,
-    ) { settings, latest, recent, workouts, sync ->
+        combine(
+            repository.observeSettings(),
+            repository.observeLatestSummary(),
+            repository.observeRecentSummaries(limit = MAX_SUMMARY_DAYS),
+            repository.observeRecentWorkouts(limit = MAX_WORKOUT_ROWS),
+            syncState,
+        ) { settings, latest, recent, workouts, sync ->
+            CoreState(settings, latest, recent, workouts, sync)
+        },
+        repository.observeTodayInsights(),
+        repository.observeSyncFreshness(),
+    ) { core, insights, freshness ->
         MainUiState(
-            settings = settings,
-            latestSummary = latest,
-            recentSummaries = recent,
-            recentWorkouts = workouts,
-            isSyncing = sync.isSyncing,
-            syncMessage = sync.syncMessage,
-            darkMode = settings.darkMode,
+            settings = core.settings,
+            latestSummary = core.latest,
+            recentSummaries = core.recent,
+            recentWorkouts = core.workouts,
+            isSyncing = core.sync.isSyncing,
+            syncMessage = core.sync.syncMessage,
+            darkMode = core.settings.darkMode,
+            todayInsights = insights,
+            syncFreshness = freshness,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = MainUiState(),
+    )
+
+    private data class CoreState(
+        val settings: SyncSettings,
+        val latest: DailySummaryEntity?,
+        val recent: List<DailySummaryEntity>,
+        val workouts: List<WorkoutEntity>,
+        val sync: SyncUiState,
     )
 
     fun saveSettings(localServerUrl: String, tailscaleServerUrl: String, preferredNetwork: String, token: String, windowDays: Int) {
@@ -115,6 +138,16 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
         }
     }
 
+    fun observeInsightsForDay(day: String): Flow<TodayInsightsDto?> =
+        repository.observeInsightsForDay(day)
+
+    fun requestInsightsForDay(day: String) {
+        viewModelScope.launch {
+            runCatching { repository.ensureInsightsFor(day) }
+                .onFailure { AppLogger.w(TAG, "Insights request failed day=$day", it) }
+        }
+    }
+
     fun setDarkMode(enabled: Boolean?) {
         viewModelScope.launch {
             runCatching {
@@ -126,6 +159,29 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
     fun saveUserName(name: String) {
         viewModelScope.launch {
             runCatching { repository.saveUserName(name) }
+        }
+    }
+
+    fun saveBackgroundSyncInterval(context: Context, hours: Int) {
+        if (!BackgroundSyncScheduler.isAllowed(hours)) {
+            syncState.update { it.copy(syncMessage = "Unsupported background sync interval.") }
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                repository.saveBackgroundSyncInterval(hours)
+                val nextRun = BackgroundSyncScheduler.apply(context.applicationContext, hours)
+                repository.recordNextBackgroundRun(nextRun)
+            }.onSuccess {
+                val message = if (hours == 0) "Background sync turned off." else "Background sync every ${hours}h."
+                syncState.update { it.copy(syncMessage = message) }
+                AppLogger.i(TAG, "Background sync interval applied hours=$hours")
+            }.onFailure { throwable ->
+                AppLogger.w(TAG, "Failed to apply background sync interval", throwable)
+                syncState.update {
+                    it.copy(syncMessage = throwable.message ?: "Could not update background sync.")
+                }
+            }
         }
     }
 

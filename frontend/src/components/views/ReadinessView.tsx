@@ -4,9 +4,20 @@ import { ScoreRing } from '@/components/health/ScoreRing';
 import { MetricPill } from '@/components/health/MetricPill';
 import { Heart, Zap, Thermometer, Brain } from 'lucide-react';
 import { format } from 'date-fns';
+import { useInsights } from '@/hooks/useInsights';
+import { BaselineTable, ContributorGrid } from '@/components/health/InsightsPanels';
+
+const READINESS_BASELINE_METRICS = new Set([
+  'readiness_score',
+  'hrv',
+  'resting_hr',
+  'temperature_deviation',
+]);
 
 export function ReadinessView() {
   const { data, isDataLoading, selectedDate } = useDashboard();
+  const dayKey = format(selectedDate, 'yyyy-MM-dd');
+  const insights = useInsights(dayKey);
 
   if (isDataLoading) {
     return <div className="flex items-center justify-center h-full text-white/30 text-sm">Loading...</div>;
@@ -36,6 +47,19 @@ export function ReadinessView() {
         />
         <MetricPill label="Recovery" value={raw?.resilience?.[0]?.sleep_recovery != null ? `${Math.round(raw.resilience[0].sleep_recovery)}%` : null} icon={<Brain className="h-3.5 w-3.5" />} />
       </div>
+
+      {insights.contributors && (
+        <ContributorGrid title="Readiness contributors" items={insights.contributors.readiness} />
+      )}
+
+      {insights.baselines && (
+        <BaselineTable
+          bundle={{
+            day: insights.baselines.day,
+            deltas: insights.baselines.deltas.filter((d) => READINESS_BASELINE_METRICS.has(d.metric)),
+          }}
+        />
+      )}
 
       {!summary.scores.readiness && (
         <div className="glass-card rounded-2xl p-6 text-center">

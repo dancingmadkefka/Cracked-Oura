@@ -21,6 +21,13 @@ from ..models import (
     SleepSession,
     Workout,
 )
+from ..insights import (
+    build_action_cards,
+    build_baseline_bundle,
+    build_contributor_summaries,
+    build_daily_guidance,
+    build_sync_freshness,
+)
 
 logger = logging.getLogger("MobileAPI")
 
@@ -133,6 +140,84 @@ class MobileDailySummaryResponse(BaseModel):
     sleep_session_count: Optional[int] = None
 
 
+class MobileContributorSummary(BaseModel):
+    domain: str
+    key: str
+    label: str
+    status: str
+    value: Optional[int] = None
+    unit: str
+    explanation: str
+    source_path: str
+
+
+class MobileBaselineDelta(BaseModel):
+    metric: str
+    label: str
+    unit: str
+    current: Optional[float] = None
+    baseline_7d: Optional[float] = None
+    baseline_14d: Optional[float] = None
+    baseline_30d: Optional[float] = None
+    delta_7d: Optional[float] = None
+    delta_14d: Optional[float] = None
+    delta_30d: Optional[float] = None
+    direction: Optional[str] = None
+    sample_count_7d: int = 0
+    sample_count_14d: int = 0
+    sample_count_30d: int = 0
+    preferred: Optional[str] = None
+
+
+class MobileActionEvidence(BaseModel):
+    metric: str
+    value: Any = None
+    day: Optional[str] = None
+    source_path: str
+
+
+class MobileActionCard(BaseModel):
+    id: str
+    day: str
+    severity: str
+    category: str
+    title: str
+    reason: str
+    recommendation: str
+    evidence: List[MobileActionEvidence] = Field(default_factory=list)
+    dismissible: bool = True
+
+
+class MobileDailyGuidance(BaseModel):
+    day: str
+    headline: str
+    body: List[str] = Field(default_factory=list)
+    citations: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class MobileSyncFreshness(BaseModel):
+    latest_day: Optional[str] = None
+    last_ingest_at: Optional[str] = None
+    last_export_request_at: Optional[str] = None
+    status: str
+    message: Optional[str] = None
+    mobile_server_enabled: bool = False
+    mobile_server_status: Optional[str] = None
+    automation_status: Optional[str] = None
+    next_run: Optional[str] = None
+    days_behind: Optional[int] = None
+
+
+class MobileTodayInsights(BaseModel):
+    day: Optional[date] = None
+    contributors_sleep: List[MobileContributorSummary] = Field(default_factory=list)
+    contributors_readiness: List[MobileContributorSummary] = Field(default_factory=list)
+    contributors_activity: List[MobileContributorSummary] = Field(default_factory=list)
+    baselines: List[MobileBaselineDelta] = Field(default_factory=list)
+    action_cards: List[MobileActionCard] = Field(default_factory=list)
+    guidance: Optional[MobileDailyGuidance] = None
+
+
 class MobileSyncResponse(BaseModel):
     generated_at: datetime
     latest_day: Optional[date] = None
@@ -140,6 +225,8 @@ class MobileSyncResponse(BaseModel):
     available_start_day: Optional[date] = None
     days: List[MobileDailySummaryResponse]
     workouts: List[MobileWorkoutResponse]
+    today_insights: Optional[MobileTodayInsights] = None
+    sync_freshness: Optional[MobileSyncFreshness] = None
 
 
 def _mobile_settings() -> Dict[str, Any]:
@@ -465,6 +552,9 @@ def _build_sync_response(db: Session, window_days: int) -> MobileSyncResponse:
 
     available_start_day = all_days[-1] if all_days else None
 
+    today_insights = _build_today_insights(db, latest_day)
+    sync_freshness = _build_mobile_sync_freshness(db)
+
     return MobileSyncResponse(
         generated_at=datetime.utcnow(),
         latest_day=latest_day,
@@ -472,7 +562,49 @@ def _build_sync_response(db: Session, window_days: int) -> MobileSyncResponse:
         available_start_day=available_start_day,
         days=day_summaries,
         workouts=workouts,
+        today_insights=today_insights,
+        sync_freshness=sync_freshness,
     )
+
+
+def _build_today_insights(db: Session, day: Optional[date]) -> Optional[MobileTodayInsights]:
+    if day is None:
+        return None
+    sleep = db.query(Sleep).filter(Sleep.day == day).one_or_none()
+    readiness = db.query(Readiness).filter(Readiness.day == day).one_or_none()
+    activity = db.query(Activity).filter(Activity.day == day).one_or_none()
+
+    contributors_sleep = [
+        MobileContributorSummary(**c.to_dict())
+        for c in build_contributor_summaries("sleep", sleep.contributors if sleep else None)
+    ]
+    contributors_readiness = [
+        MobileContributorSummary(**c.to_dict())
+        for c in build_contributor_summaries("readiness", readiness.contributors if readiness else None)
+    ]
+    contributors_activity = [
+        MobileContributorSummary(**c.to_dict())
+        for c in build_contributor_summaries("activity", activity.contributors if activity else None)
+    ]
+    baselines = [MobileBaselineDelta(**d.to_dict()) for d in build_baseline_bundle(db, day).deltas]
+    action_cards = [MobileActionCard(**c.to_dict()) for c in build_action_cards(db, day)]
+    guidance = MobileDailyGuidance(**build_daily_guidance(db, day).to_dict())
+
+    return MobileTodayInsights(
+        day=day,
+        contributors_sleep=contributors_sleep,
+        contributors_readiness=contributors_readiness,
+        contributors_activity=contributors_activity,
+        baselines=baselines,
+        action_cards=action_cards,
+        guidance=guidance,
+    )
+
+
+def _build_mobile_sync_freshness(db: Session) -> MobileSyncFreshness:
+    state = mobile_server_manager.reconcile()
+    fresh = build_sync_freshness(db, state)
+    return MobileSyncFreshness(**fresh.to_dict())
 
 
 @router.get("/api/mobile/settings", response_model=MobileSettingsResponse)
@@ -560,3 +692,20 @@ def mobile_sync(
     except Exception as exc:
         logger.exception("Mobile sync failed")
         raise HTTPException(status_code=500, detail=f"Sync failed: {exc}")
+
+
+@router.get("/api/mobile/insights/{day}", response_model=MobileTodayInsights)
+def mobile_insights_for_day(
+    day: date,
+    _: Dict[str, Any] = Depends(_require_mobile_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        insights = _build_today_insights(db, day)
+    except Exception as exc:
+        logger.exception("Mobile per-day insights failed day=%s", day)
+        raise HTTPException(status_code=500, detail=f"Insights failed: {exc}")
+
+    if insights is None:
+        return MobileTodayInsights(day=day)
+    return insights

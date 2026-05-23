@@ -34,6 +34,7 @@ import com.crackedoura.mobile.ui.MainUiState
 import com.crackedoura.mobile.ui.formatDateTimeLabel
 
 private val presetWindowDays = listOf(30, 90, 180, 365)
+private val backgroundSyncOptions = listOf(0 to "Off", 6 to "Every 6h", 12 to "Every 12h", 24 to "Daily")
 
 @Composable
 fun SettingsScreen(
@@ -43,6 +44,7 @@ fun SettingsScreen(
     onSaveAndSync: (String, String, String, String, Int) -> Unit,
     onDarkModeToggle: (Boolean?) -> Unit,
     onSaveUserName: (String) -> Unit,
+    onSaveBackgroundSyncInterval: (Int) -> Unit = {},
 ) {
     var userName by rememberSaveable(uiState.settings.userName) {
         mutableStateOf(uiState.settings.userName)
@@ -234,6 +236,47 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
+            }
+        }
+
+        item {
+            SectionCard(title = "Background sync") {
+                Text(
+                    text = "Run sync in the background while connected to a network.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.55f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    backgroundSyncOptions.forEach { (hours, label) ->
+                        FilterChip(
+                            selected = uiState.settings.backgroundSyncIntervalHours == hours,
+                            onClick = { onSaveBackgroundSyncInterval(hours) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Text(
+                    text = uiState.settings.lastBackgroundRunAt
+                        ?.let { "Last run: ${formatDateTimeLabel(it)}" }
+                        ?: "No background run yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.45f),
+                )
+                Text(
+                    text = uiState.settings.nextBackgroundRunAt
+                        ?.let { "Next run: ${formatDateTimeLabel(it)}" }
+                        ?: if (uiState.settings.backgroundSyncIntervalHours <= 0) {
+                            "Schedule disabled."
+                        } else {
+                            "Next run will be scheduled after first sync."
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.45f),
+                )
+                val lastBgError = uiState.settings.lastBackgroundError
+                if (lastBgError != null) {
+                    SyncDiagnosticsBlock(lastBgError)
+                }
             }
         }
 

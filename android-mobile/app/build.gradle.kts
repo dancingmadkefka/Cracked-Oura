@@ -81,6 +81,8 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
 
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     debugImplementation(composeBom)
     debugImplementation("androidx.compose.ui:ui-tooling")
 

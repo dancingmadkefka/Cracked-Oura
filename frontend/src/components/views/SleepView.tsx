@@ -5,9 +5,20 @@ import { MetricPill } from '@/components/health/MetricPill';
 import { TimelineList } from '@/components/health/TimelineList';
 import { Moon, Heart, Clock, Sun, Sunset, Zap } from 'lucide-react';
 import { format } from 'date-fns';
+import { useInsights } from '@/hooks/useInsights';
+import { BaselineTable, ContributorGrid } from '@/components/health/InsightsPanels';
+
+const SLEEP_BASELINE_METRICS = new Set([
+  'sleep_score',
+  'total_sleep_minutes',
+  'hrv',
+  'resting_hr',
+]);
 
 export function SleepView() {
   const { data, isDataLoading, selectedDate } = useDashboard();
+  const dayKey = format(selectedDate, 'yyyy-MM-dd');
+  const insights = useInsights(dayKey);
 
   if (isDataLoading) {
     return <div className="flex items-center justify-center h-full text-white/30 text-sm">Loading...</div>;
@@ -82,6 +93,19 @@ export function SleepView() {
           label="Breathing Disturbance"
           value={raw.sleep.breathing_disturbance_index}
           icon={<Zap className="h-3.5 w-3.5" />}
+        />
+      )}
+
+      {insights.contributors && (
+        <ContributorGrid title="Sleep contributors" items={insights.contributors.sleep} />
+      )}
+
+      {insights.baselines && (
+        <BaselineTable
+          bundle={{
+            day: insights.baselines.day,
+            deltas: insights.baselines.deltas.filter((d) => SLEEP_BASELINE_METRICS.has(d.metric)),
+          }}
         />
       )}
 

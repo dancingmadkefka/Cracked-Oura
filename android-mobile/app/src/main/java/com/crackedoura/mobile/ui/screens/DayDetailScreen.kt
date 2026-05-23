@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.crackedoura.mobile.data.remote.SyncFreshnessDto
+import com.crackedoura.mobile.data.remote.TodayInsightsDto
 import com.crackedoura.mobile.ui.ActivityGoalBasis
 import com.crackedoura.mobile.ui.DailyInsight
 import com.crackedoura.mobile.ui.formatCompactNumber
@@ -29,6 +31,8 @@ fun DayDetailScreen(
     insight: DailyInsight?,
     isSyncing: Boolean,
     onSync: () -> Unit,
+    dayInsights: TodayInsightsDto? = null,
+    syncFreshness: SyncFreshnessDto? = null,
 ) {
     LazyColumn(
         modifier = Modifier.padding(padding),
@@ -59,6 +63,7 @@ fun DayDetailScreen(
                     insight.summary.resilienceLevel?.let {
                         StatusPill(label = it.replaceFirstChar { char -> char.uppercase() }, tone = Color.White)
                     }
+                    SyncFreshnessPill(syncFreshness)
                 }
                 Button(
                     onClick = onSync,
@@ -67,6 +72,14 @@ fun DayDetailScreen(
                     Text(if (isSyncing) "Syncing..." else "Refresh cache")
                 }
             }
+        }
+
+        if (dayInsights != null) {
+            dayInsights.guidance?.let { item { GuidanceCard(it) } }
+            item { ActionCardsList(dayInsights.actionCards) }
+            item { ContributorList("Sleep contributors", dayInsights.contributorsSleep) }
+            item { ContributorList("Readiness contributors", dayInsights.contributorsReadiness) }
+            item { ContributorList("Activity contributors", dayInsights.contributorsActivity) }
         }
 
         item {

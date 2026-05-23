@@ -4,9 +4,17 @@ import { ScoreRing } from '@/components/health/ScoreRing';
 import { MetricPill } from '@/components/health/MetricPill';
 import { Flame, Footprints, TrendingUp, Timer } from 'lucide-react';
 import { format } from 'date-fns';
+import { useInsights } from '@/hooks/useInsights';
+import { BaselineTable, ContributorGrid } from '@/components/health/InsightsPanels';
+
+const ACTIVITY_BASELINE_METRICS = new Set([
+  'activity_score',
+]);
 
 export function ActivityView() {
   const { data, isDataLoading, selectedDate } = useDashboard();
+  const dayKey = format(selectedDate, 'yyyy-MM-dd');
+  const insights = useInsights(dayKey);
 
   if (isDataLoading) {
     return <div className="flex items-center justify-center h-full text-white/30 text-sm">Loading...</div>;
@@ -53,6 +61,19 @@ export function ActivityView() {
             ))}
           </div>
         </div>
+      )}
+
+      {insights.contributors && (
+        <ContributorGrid title="Activity contributors" items={insights.contributors.activity} />
+      )}
+
+      {insights.baselines && (
+        <BaselineTable
+          bundle={{
+            day: insights.baselines.day,
+            deltas: insights.baselines.deltas.filter((d) => ACTIVITY_BASELINE_METRICS.has(d.metric)),
+          }}
+        />
       )}
 
       {!summary.scores.activity && (

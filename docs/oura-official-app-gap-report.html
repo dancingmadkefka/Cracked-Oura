@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oura Official App vs Cracked Oura Gap Report</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080a0d;
+      --panel: #11151b;
+      --panel-2: #161c24;
+      --text: #eef2f5;
+      --muted: #a7b0ba;
+      --line: #2a323d;
+      --good: #39c58a;
+      --partial: #f0bd52;
+      --missing: #f06b6b;
+      --accent: #7fc7ff;
+      --accent-2: #9fe3d4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(127, 199, 255, 0.18), transparent 34rem),
+        radial-gradient(circle at 85% 8%, rgba(159, 227, 212, 0.12), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .page {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 44px 0 64px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      color: var(--accent-2);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 { margin: 0; line-height: 1.1; }
+    h1 { max-width: 880px; font-size: clamp(34px, 5vw, 62px); letter-spacing: -0.02em; }
+    h2 { margin-top: 34px; font-size: 26px; }
+    h3 { margin-top: 18px; font-size: 18px; }
+
+    .subtitle {
+      max-width: 850px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 24px 0 10px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025));
+      padding: 18px;
+    }
+
+    .metric {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .card p, .callout p { margin: 0; color: var(--muted); }
+
+    .callout {
+      border: 1px solid rgba(127, 199, 255, 0.32);
+      border-radius: 8px;
+      background: rgba(127, 199, 255, 0.09);
+      padding: 18px;
+      margin: 24px 0;
+    }
+
+    .section-note {
+      max-width: 930px;
+      margin: 8px 0 16px;
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 13px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--panel-2);
+      color: #dce6ef;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 750; color: #fff; }
+
+    .status {
+      display: inline-flex;
+      min-width: 92px;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .good { background: rgba(57, 197, 138, 0.14); color: var(--good); }
+    .partial { background: rgba(240, 189, 82, 0.14); color: var(--partial); }
+    .missing { background: rgba(240, 107, 107, 0.14); color: var(--missing); }
+
+    .priority-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .priority-list .card { background: rgba(255, 255, 255, 0.035); }
+
+    ol, ul { margin: 10px 0 0 20px; padding: 0; }
+    li { margin: 6px 0; color: var(--muted); }
+    strong { color: var(--text); }
+
+    .sources {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .source {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+      padding: 13px;
+    }
+
+    .source span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    @media (max-width: 860px) {
+      .page { width: min(100vw - 24px, 1180px); padding-top: 28px; }
+      .grid, .priority-list, .sources { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: normal; }
+      th, td { min-width: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">Research report</div>
+      <h1>Official Oura App vs Cracked Oura Desktop and Mobile</h1>
+      <p class="subtitle">
+        Gap analysis of the current official Oura customer experience against this repository's Electron desktop app,
+        Android mobile app, and local backend. Researched and prepared on May 22, 2026.
+      </p>
+      <div class="meta">
+        <span class="pill">Official sources checked: Oura Help, App Store</span>
+        <span class="pill">Local surfaces checked: frontend, android-mobile, backend</span>
+        <span class="pill">Repo status: alpha, export-driven data model</span>
+      </div>
+    </header>
+
+    <section class="grid" aria-label="Executive scorecard">
+      <article class="card">
+        <span class="metric">Strong</span>
+        <p>Historical exported-data analysis, local privacy, custom dashboards, trends, and AI analyst workflows.</p>
+      </article>
+      <article class="card">
+        <span class="metric">Partial</span>
+        <p>Sleep, readiness, activity, resilience, cardiovascular age, workouts, tags, battery, and mobile summaries.</p>
+      </article>
+      <article class="card">
+        <span class="metric">Weak</span>
+        <p>Live ring/device control, guided logging, official algorithms, and customer lifecycle features.</p>
+      </article>
+    </section>
+
+    <section class="callout">
+      <h2>Executive Summary</h2>
+      <p>
+        Cracked Oura is best positioned as a privacy-first, no-subscription analytics layer over exported Oura data.
+        It already competes well on longitudinal analysis, customizable dashboards, local storage, and free-form AI
+        interrogation of personal history. It does not yet match the official app as a full companion app because the
+        official app owns ring setup, Bluetooth sync, live device settings, action cards, guided logging,
+        reports, experiments, and newest personalized health features.
+      </p>
+    </section>
+
+    <h2>What Official Oura Provides</h2>
+    <p class="section-note">
+      Oura describes the app as a personal health companion organized around Today, Vitals, and My Health. The official
+      app combines daily interpretation, live device workflows, and long-term health-area ratings.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Official Oura capability</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Core scores</td>
+          <td>Sleep, Activity, and Readiness scores with daily recommendations and score-specific detail views.</td>
+          <td>Oura App Store listing and Oura Help app overview.</td>
+        </tr>
+        <tr>
+          <td>Today experience</td>
+          <td>Dynamic Today tab with shortcuts for readiness, sleep, activity, heart rate, stress, and glucose; action items and recent events.</td>
+          <td>Oura Help: How to Use the Oura App.</td>
+        </tr>
+        <tr>
+          <td>Vitals</td>
+          <td>Configurable cards grouped by readiness, sleep, activity, stress, heart health, metabolic health, and core metrics.</td>
+          <td>Oura Help: How to Use the Oura App.</td>
+        </tr>
+        <tr>
+          <td>Long-term health</td>
+          <td>My Health ratings for sleep health, stress management, heart health, plus habits/routines and reports.</td>
+          <td>Oura Help: How to Use the Oura App.</td>
+        </tr>
+        <tr>
+          <td>Stress and recovery</td>
+          <td>Daytime stress, cumulative stress, resilience, recovery signals, rest recommendations, and Rest Mode.</td>
+          <td>Oura Help app feature categories and app overview.</td>
+        </tr>
+        <tr>
+          <td>Symptom Radar</td>
+          <td>Detects early signs of strain from temperature, respiratory rate, resting HR, HRV, and inactive time; shows no/minor/major signs.</td>
+          <td>Oura Help: Symptom Radar.</td>
+        </tr>
+        <tr>
+          <td>Activity capture</td>
+          <td>Automatic Activity Detection, manual activity add/edit/delete, workout HR recording, location-based route/distance support.</td>
+          <td>Oura Help: Record a Workout with Oura.</td>
+        </tr>
+        <tr>
+          <td>Device management</td>
+          <td>Ring setup, firmware/software updates, battery/device details, airplane mode, latest location, remove/reset device, SpO2 toggle.</td>
+          <td>Oura Help: How to Use the Oura App.</td>
+        </tr>
+        <tr>
+          <td>AI and experiments</td>
+          <td>Oura Advisor, Oura Labs, experimental studies such as Blood Pressure Profile, plus experiments and personalized care recommendations.</td>
+          <td>Oura Help: Oura Labs and app overview.</td>
+        </tr>
+        <tr>
+          <td>Sharing and community</td>
+          <td>Reports, Oura Stickers, Circles, referrals, Explore content, and shareable social output.</td>
+          <td>Oura Help: How to Use the Oura App.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>What Cracked Oura Provides Today</h2>
+    <p class="section-note">
+      The project currently works as a local data warehouse plus desktop and Android clients. It is export-first, not
+      Bluetooth-first: the backend automates or manually ingests Oura data exports, then the apps visualize and analyze
+      the local database.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Local product area</th>
+          <th>Implemented capability</th>
+          <th>Current limits</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Desktop dashboard</td>
+          <td>React/Electron app with Today, Sleep, Readiness, Activity, Stress &amp; Resilience, Trends &amp; Explorer, Tags &amp; Journal, AI Analyst, and custom dashboards.</td>
+          <td>Many views depend on exported data. It does not control the ring or provide live in-day sync.</td>
+        </tr>
+        <tr>
+          <td>Data ingestion</td>
+          <td>FastAPI backend imports Oura export ZIP files and stores sleep, activity, readiness, resilience, sleep sessions, workouts, meditation, battery, heart rate, temperature, ring configuration, tags, and cardiovascular age.</td>
+          <td>Export cadence can lag by hours or days. Some official-only derived features are not present in export data.</td>
+        </tr>
+        <tr>
+          <td>Custom analytics</td>
+          <td>Dynamic query API, schema introspection, reusable widgets, table/chart/gauge/radar widgets, and dashboard layout editing.</td>
+          <td>Advanced correlation, anomaly detection, and cohort-style explanations are still limited.</td>
+        </tr>
+        <tr>
+          <td>AI Analyst</td>
+          <td>Persistent chat threads and an LLM-backed analyst that can query local history.</td>
+          <td>Needs stricter health disclaimers, structured tool outputs, traceable cited metrics, and safer recommendation boundaries.</td>
+        </tr>
+        <tr>
+          <td>Android app</td>
+          <td>Native Kotlin/Compose app with Today, Sleep, Trends, AI, Settings, manual sync, offline Room cache, day detail, local sleep-debt approximation, baseline deltas, and workouts.</td>
+          <td>Manual snapshot sync only; summary/window data rather than full high-frequency streams; no background sync yet.</td>
+        </tr>
+        <tr>
+          <td>Privacy and ownership</td>
+          <td>Local SQLite database, local mobile sync API, token-protected Android sync, and no subscription dependency for viewing imported/exported data.</td>
+          <td>Security posture needs hardening before broad distribution: token lifecycle, encrypted storage, HTTPS/Tailscale guidance, backups, and threat-model docs.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Feature Comparison</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>Official Oura</th>
+          <th>Cracked Oura desktop</th>
+          <th>Cracked Oura Android</th>
+          <th>Gap</th>
+          <th>Close path</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sleep, readiness, activity scores</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status good">Full</span></td>
+          <td>Mostly parity for historical display.</td>
+          <td>Improve empty states and contributor drilldowns so score explanations are consistently visible.</td>
+        </tr>
+        <tr>
+          <td>Contributor detail and score education</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Contributor JSON is stored, but explanations are uneven across views.</td>
+          <td>Build normalized contributor cards for sleep/readiness/activity on both clients.</td>
+        </tr>
+        <tr>
+          <td>Live ring sync</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td>No direct Bluetooth ring ingestion.</td>
+          <td>Do not chase unofficial Bluetooth first. Add scheduled export/API sync, then evaluate supported Oura API where possible.</td>
+        </tr>
+        <tr>
+          <td>Device management</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td>Ring configuration and battery can be displayed, but setup, firmware, airplane mode, location, and SpO2 toggle are absent.</td>
+          <td>Represent device info read-only. Avoid promising write controls unless a supported API exists.</td>
+        </tr>
+        <tr>
+          <td>Today timeline and action cards</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Local apps show summaries and timelines, but not official action cards for detected naps, firmware, AAD confirmations, etc.</td>
+          <td>Create a local recommendation/action engine from missing data, low battery, unusual strain, sleep debt, tags, and workouts.</td>
+        </tr>
+        <tr>
+          <td>Trends and custom analytics</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status good">Strong</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Desktop may exceed official app for custom dashboards. Mobile has a solid but narrower explorer.</td>
+          <td>Sync chart definitions and saved dashboard presets to mobile; add correlation and anomaly modules.</td>
+        </tr>
+        <tr>
+          <td>Stress and resilience</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Resilience and stress/recovery minutes exist, but cumulative stress and official stress-management health area are incomplete.</td>
+          <td>Add local cumulative stress approximations with transparent labels and minimum data rules.</td>
+        </tr>
+        <tr>
+          <td>Symptom Radar</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td>No strain classifier or dedicated alerting.</td>
+          <td>Build "Strain Watch" as a non-medical anomaly detector using temp, HR, HRV, respiration if available, inactivity, and sleep.</td>
+        </tr>
+        <tr>
+          <td>Activity detection and workout capture</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Imported workouts display, but apps cannot detect, confirm, record HR, or GPS-track workouts.</td>
+          <td>Add manual workout review and better imported-workout analytics later only if it supports Phase 1/2 analysis goals.</td>
+        </tr>
+        <tr>
+          <td>Reports and sharing</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td>Desktop can visualize data but lacks polished exportable reports and stickers.</td>
+          <td>Add PDF/HTML report exports for date ranges and shareable summary images from dashboard widgets.</td>
+        </tr>
+        <tr>
+          <td>AI advisor</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status good">Strong</span></td>
+          <td><span class="status partial">Partial</span></td>
+          <td>Local app has a differentiator: historical local analysis. Mobile AI is present but less integrated.</td>
+          <td>Make AI answers cite exact metrics/dates, expose suggested follow-up charts, and add health-safety guardrails.</td>
+        </tr>
+        <tr>
+          <td>Oura Labs and experiments</td>
+          <td><span class="status good">Full</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td><span class="status missing">Missing</span></td>
+          <td>No structured experimental feature channel.</td>
+          <td>Create "Labs" for opt-in local experiments: anomaly detection, correlations, sleep debt, schedule effects, and report templates.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Highest-Impact Gaps To Close</h2>
+    <div class="priority-list">
+      <article class="card">
+        <h3>1. Make the product honest about its role</h3>
+        <p>Position it as "local analytics for your exported Oura history," not a full replacement companion app.</p>
+        <ul>
+          <li>Add copy in onboarding explaining export freshness, unsupported live ring controls, and privacy benefits.</li>
+          <li>Show "last Oura export" and "latest local day" prominently in desktop and Android.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>2. Add guided health detail views</h3>
+        <p>The official app wins because it explains scores. Cracked Oura stores enough data to make this much better.</p>
+        <ul>
+          <li>Normalize sleep/readiness/activity contributors into reusable UI cards.</li>
+          <li>Add "why this changed" deltas against 7/14/30-day baselines.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>3. Build local action cards</h3>
+        <p>Close the Today-tab gap without needing official action feeds.</p>
+        <ul>
+          <li>Cards for low battery, stale sync, low readiness, sleep debt, HRV drop, temperature anomaly, inactivity, and late bedtime.</li>
+          <li>Make each action traceable to the data point that triggered it.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>4. Ship mobile background sync</h3>
+        <p>Manual mobile sync makes the Android app feel like a viewer. Background refresh makes it feel like a product.</p>
+        <ul>
+          <li>Use WorkManager for scheduled token-protected sync.</li>
+          <li>Add sync conflict/failure notifications and a compact status widget.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>5. Add reports</h3>
+        <p>Reports are a high-leverage desktop feature and align with a local-data product.</p>
+        <ul>
+          <li>Generate weekly/monthly HTML and PDF reports from the local database.</li>
+          <li>Include trends, anomalies, workouts, tags, sleep regularity, and AI-written summaries with cited dates.</li>
+        </ul>
+      </article>
+    </div>
+
+    <h2>Recommended Roadmap</h2>
+    <p class="section-note">
+      Scope is intentionally limited to the two workstreams below: parity polish for the daily experience, then
+      differentiation through local historical analysis, explainable AI, reports, and dashboard templates.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Goal</th>
+          <th>Deliverables</th>
+          <th>Why now</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Phase 1: Parity polish</td>
+          <td>Make stored Oura export data as understandable as the official app.</td>
+          <td>Contributor cards, better sleep/readiness/activity detail, local action cards, sync freshness UI, mobile background sync.</td>
+          <td>Uses data already present in the database and closes daily-use friction.</td>
+        </tr>
+        <tr>
+          <td>Phase 2: Differentiation</td>
+          <td>Lean into what official Oura does not do well: local history and custom analysis.</td>
+          <td>Correlation explorer, anomaly detection, AI citations, saved investigations, weekly/monthly reports, dashboard templates.</td>
+          <td>This is the project&apos;s natural advantage and does not require ring control.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Phase 1 Detailed Specification: Parity Polish</h2>
+    <p class="section-note">
+      Phase 1 should make the apps feel dependable for daily use with the data already present in the local database.
+      It should not introduce external integrations or unofficial ring control.
+    </p>
+
+    <h3>Phase 1 Objectives</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Objective</th>
+          <th>Spec</th>
+          <th>Acceptance criteria</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Explain core scores</td>
+          <td>
+            Normalize sleep, readiness, and activity contributors into a shared contributor model with label, value,
+            direction, status, short explanation, and source field path. Render the same contributor cards on desktop
+            detail views and Android day detail.
+          </td>
+          <td>
+            Every day with contributor JSON shows contributor cards for all available domains. Missing contributors
+            show a compact "not exported for this day" state, not blank UI.
+          </td>
+        </tr>
+        <tr>
+          <td>Improve daily guidance</td>
+          <td>
+            Replace generic daily text with deterministic guidance generated from readiness, sleep, activity, HRV,
+            resting HR, sleep debt approximation, temperature deviation, and activity goal progress.
+          </td>
+          <td>
+            Guidance cites the exact metric that triggered it, for example "HRV is 8 ms below your 14-day baseline."
+            No advice is shown without a data reason.
+          </td>
+        </tr>
+        <tr>
+          <td>Add local action cards</td>
+          <td>
+            Create a rules engine that emits prioritized cards for stale sync, low battery, low readiness, poor sleep,
+            high temperature deviation, HRV drop, high stress/recovery imbalance, missed activity target, and missing data.
+          </td>
+          <td>
+            Today view renders 0-5 cards sorted by severity. Each card has title, reason, suggested action, source metrics,
+            and dismiss state for the current day.
+          </td>
+        </tr>
+        <tr>
+          <td>Show sync freshness</td>
+          <td>
+            Surface latest local Oura day, last export request, last successful ingest, current automation status, and
+            mobile sync server state in one shared status component.
+          </td>
+          <td>
+            Desktop sidebar/top bar and Android Settings/Today show whether data is fresh, stale, syncing, or blocked
+            by OTP/login/server configuration.
+          </td>
+        </tr>
+        <tr>
+          <td>Background Android sync</td>
+          <td>
+            Add WorkManager scheduled sync using the existing token-protected desktop mobile API. Respect the configured
+            sync window and preserve manual "sync now" behavior.
+          </td>
+          <td>
+            User can choose off/manual, every 6 hours, every 12 hours, or daily. Last background result is visible with
+            failure diagnostics already supported by the repository.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 1 Backend/Data Contracts</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Contract</th>
+          <th>Fields</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ContributorSummary</td>
+          <td><code>domain</code>, <code>key</code>, <code>label</code>, <code>status</code>, <code>value</code>, <code>unit</code>, <code>explanation</code>, <code>source_path</code></td>
+          <td>Computed from existing JSON columns. Keep this as a read model; do not mutate imported raw data.</td>
+        </tr>
+        <tr>
+          <td>BaselineDelta</td>
+          <td><code>metric</code>, <code>current</code>, <code>baseline_7d</code>, <code>baseline_14d</code>, <code>baseline_30d</code>, <code>delta</code>, <code>direction</code></td>
+          <td>Minimum sample count: 5 for 7/14-day baselines, 14 for 30-day baselines. Return sample count with each baseline.</td>
+        </tr>
+        <tr>
+          <td>ActionCard</td>
+          <td><code>id</code>, <code>day</code>, <code>severity</code>, <code>category</code>, <code>title</code>, <code>reason</code>, <code>recommendation</code>, <code>evidence</code>, <code>dismissible</code></td>
+          <td>Evidence is an array of metric/value/date/source-path objects. Cards should be recomputable and deterministic.</td>
+        </tr>
+        <tr>
+          <td>SyncFreshness</td>
+          <td><code>latest_day</code>, <code>last_ingest_at</code>, <code>last_export_request_at</code>, <code>status</code>, <code>message</code>, <code>mobile_server_enabled</code></td>
+          <td>Use existing config status where possible; add missing timestamps only if they are not persisted today.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 1 UI Requirements</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Surface</th>
+          <th>Required changes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Desktop Today</td>
+          <td>
+            Add action cards below the greeting and above core scores. Add a compact sync freshness chip. Replace generic
+            greeting copy with deterministic daily guidance from the backend read model.
+          </td>
+        </tr>
+        <tr>
+          <td>Desktop Sleep/Readiness/Activity</td>
+          <td>
+            Add contributor sections, baseline deltas, trend mini-charts, and evidence links back to the raw field path
+            or dashboard metric. Keep existing visual language and avoid adding a new navigation model.
+          </td>
+        </tr>
+        <tr>
+          <td>Desktop Settings</td>
+          <td>
+            Consolidate export sync, mobile sync, LLM config, and status troubleshooting. Add "latest local day" and
+            "last successful ingest" to reduce ambiguity.
+          </td>
+        </tr>
+        <tr>
+          <td>Android Today</td>
+          <td>
+            Mirror action cards and contributor summaries in a mobile-appropriate vertical layout. Keep manual pull-to-refresh
+            and show background sync status only when enabled or failed.
+          </td>
+        </tr>
+        <tr>
+          <td>Android Settings</td>
+          <td>
+            Add background sync schedule selector, last background run, next scheduled run, and diagnostics for the last
+            failed attempt. Existing server URL/token setup remains the source of truth.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 1 Non-Goals</h3>
+    <ul>
+      <li>No third-party platform integrations, watch companion, or widget work.</li>
+      <li>No medical symptom prediction features.</li>
+      <li>No Bluetooth ring setup, firmware updates, airplane mode, live HR recording, or workout GPS tracking.</li>
+      <li>No attempt to exactly reproduce proprietary Oura algorithms when export data does not expose them.</li>
+    </ul>
+
+    <h2>Phase 2 Detailed Specification: Differentiation</h2>
+    <p class="section-note">
+      Phase 2 should lean into the project&apos;s advantage: local historical data, custom analysis, and explainable AI.
+      The product should become better than the official app for people who want to inspect patterns across months or years.
+    </p>
+
+    <h3>Phase 2 Objectives</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Objective</th>
+          <th>Spec</th>
+          <th>Acceptance criteria</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Correlation Explorer</td>
+          <td>
+            Add an analysis view that compares two metrics over a selected date range with lag controls, scatter plot,
+            trend overlays, Pearson/Spearman correlation, sample count, missing-data warnings, and plain-English interpretation.
+          </td>
+          <td>
+            User can answer questions such as "does later bedtime affect readiness next day?" with a saved analysis and
+            reproducible metric/date selections.
+          </td>
+        </tr>
+        <tr>
+          <td>Anomaly detection</td>
+          <td>
+            Compute local anomalies for HRV, resting HR, temperature deviation, sleep duration, sleep timing, activity,
+            stress/recovery share, and readiness. Use rolling baselines and robust z-score or percentile bands.
+          </td>
+          <td>
+            Trends and Today can highlight unusual days with the exact baseline window, threshold, and metric evidence.
+            Anomalies are labeled "local anomaly," not diagnosis.
+          </td>
+        </tr>
+        <tr>
+          <td>AI with citations</td>
+          <td>
+            Upgrade analyst responses to include structured evidence cards: metric, date range, aggregate, comparison,
+            source query, and confidence. Text answers should cite those cards.
+          </td>
+          <td>
+            Every health-data claim in an AI answer can be traced to a query result or explicit "insufficient data"
+            statement. Unsupported medical claims are refused or softened.
+          </td>
+        </tr>
+        <tr>
+          <td>Saved investigations</td>
+          <td>
+            Let users save an analysis session containing selected metrics, filters, date range, chart config, AI prompt,
+            generated answer, and evidence cards.
+          </td>
+          <td>
+            Saved investigations appear in the AI Analyst and Trends sections, can be renamed/deleted, and remain stable
+            across app restarts.
+          </td>
+        </tr>
+        <tr>
+          <td>Reports</td>
+          <td>
+            Generate weekly and monthly HTML reports from local data. Include score trends, anomalies, best/worst days,
+            sleep consistency, activity target adherence, workouts, tags, and optional AI summary with citations.
+          </td>
+          <td>
+            Desktop can export a self-contained HTML report. PDF export is optional if it requires additional packaging work.
+          </td>
+        </tr>
+        <tr>
+          <td>Dashboard templates</td>
+          <td>
+            Add predefined dashboards for Sleep Quality, Recovery, Training Load, Stress &amp; Resilience, and Long-Term Health.
+            Templates should instantiate existing widget types and metric paths.
+          </td>
+          <td>
+            A user can create a useful dashboard in one click without configuring widgets manually. Templates remain editable.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 2 Backend/Data Contracts</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Contract</th>
+          <th>Fields</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>MetricSeries</td>
+          <td><code>metric_path</code>, <code>label</code>, <code>unit</code>, <code>points</code>, <code>missing_count</code>, <code>date_range</code></td>
+          <td>Build on existing <code>/api/query</code> and schema introspection. Standardize labels and units.</td>
+        </tr>
+        <tr>
+          <td>CorrelationResult</td>
+          <td><code>x_metric</code>, <code>y_metric</code>, <code>lag_days</code>, <code>method</code>, <code>coefficient</code>, <code>sample_count</code>, <code>p_value_optional</code>, <code>interpretation</code></td>
+          <td>Lag is essential for Oura use cases, especially sleep tonight vs readiness tomorrow.</td>
+        </tr>
+        <tr>
+          <td>AnomalyResult</td>
+          <td><code>metric</code>, <code>day</code>, <code>value</code>, <code>baseline</code>, <code>score</code>, <code>direction</code>, <code>severity</code>, <code>method</code></td>
+          <td>Persisting is optional. Computing on demand is acceptable if performance stays acceptable over multi-year data.</td>
+        </tr>
+        <tr>
+          <td>EvidenceCard</td>
+          <td><code>id</code>, <code>claim</code>, <code>metric_paths</code>, <code>date_range</code>, <code>calculation</code>, <code>result</code>, <code>confidence</code></td>
+          <td>Used by AI responses, reports, saved investigations, and chart annotations.</td>
+        </tr>
+        <tr>
+          <td>Investigation</td>
+          <td><code>id</code>, <code>title</code>, <code>created_at</code>, <code>updated_at</code>, <code>config_json</code>, <code>evidence_json</code>, <code>notes</code></td>
+          <td>Store in SQLite alongside chat threads. Keep config JSON versioned for future migration.</td>
+        </tr>
+        <tr>
+          <td>ReportDefinition</td>
+          <td><code>id</code>, <code>period</code>, <code>start_day</code>, <code>end_day</code>, <code>sections</code>, <code>generated_at</code>, <code>html</code></td>
+          <td>Reports can be regenerated; stored HTML is useful for stable sharing and snapshots.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 2 UI Requirements</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Surface</th>
+          <th>Required changes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Desktop Trends &amp; Explorer</td>
+          <td>
+            Add compare mode with metric A/B selectors, lag selector, scatter plot, line overlay, correlation panel,
+            missing-data warning, and "save investigation" action.
+          </td>
+        </tr>
+        <tr>
+          <td>Desktop AI Analyst</td>
+          <td>
+            Add evidence card rendering below responses, suggested follow-up charts, "save as investigation," and refusal
+            language for unsupported medical advice. Keep chat thread persistence.
+          </td>
+        </tr>
+        <tr>
+          <td>Desktop Reports</td>
+          <td>
+            Add a Reports view or Tools subsection for weekly/monthly report generation. Reports should preview in-app
+            and export to a self-contained HTML file.
+          </td>
+        </tr>
+        <tr>
+          <td>Desktop Dashboards</td>
+          <td>
+            Add template picker during dashboard creation and in the dashboard editor. Templates should use existing widget
+            registry entries where possible.
+          </td>
+        </tr>
+        <tr>
+          <td>Android</td>
+          <td>
+            Keep Android Phase 2 narrower: display saved investigations summaries, anomaly markers in Trends/Day Detail,
+            and read-only report summaries. Do not attempt full report authoring on mobile.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Phase 2 Analysis Rules</h3>
+    <ul>
+      <li>Every statistical result must include sample count and date range.</li>
+      <li>Correlation views must warn when fewer than 14 paired samples are available and should hide interpretation below 7 samples.</li>
+      <li>Lagged comparisons must label direction clearly: metric A on day D compared with metric B on day D+N.</li>
+      <li>Anomaly detection must use rolling personal baselines, not global norms.</li>
+      <li>AI claims must be grounded in evidence cards. If evidence is missing, the answer should say what data is missing.</li>
+    </ul>
+
+    <h3>Phase 2 Non-Goals</h3>
+    <ul>
+      <li>No third-party ingestion or export beyond local report HTML.</li>
+      <li>No clinical diagnosis, disease prediction, or medication guidance.</li>
+      <li>No automatic push notifications for anomalies unless explicitly moved back into scope later.</li>
+      <li>No major rewrite of the dashboard system; templates should compose existing widgets first.</li>
+    </ul>
+
+    <h2>Implementation Notes By Code Area</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Suggested changes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>backend</td>
+          <td>
+            Add derived-metrics services for contributors, anomalies, sleep debt, cumulative stress approximation, and report generation.
+            Keep raw imports unchanged; store derived results in versioned tables or compute on read with explicit algorithm labels.
+          </td>
+        </tr>
+        <tr>
+          <td>frontend</td>
+          <td>
+            Add reusable contributor components, local action-card engine, report export view, Labs view, and clearer device/sync status.
+            Expand AI Analyst to return cited metric cards alongside text.
+          </td>
+        </tr>
+        <tr>
+          <td>android-mobile</td>
+          <td>
+            Add WorkManager background sync, richer detail screens, anomaly markers, saved-investigation summaries, and
+            selective high-frequency heart-rate and temperature sync for charts and anomaly detection.
+          </td>
+        </tr>
+        <tr>
+          <td>security/privacy</td>
+          <td>
+            Encrypt local mobile token storage, document LAN/Tailscale threat model, add token rotation, support HTTPS reverse-proxy guidance,
+            and make destructive data actions explicit.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Risks And Constraints</h2>
+    <ul>
+      <li><strong>Official algorithms are not fully reproducible.</strong> Sleep need, Symptom Radar, and cumulative stress should be labeled as local approximations unless sourced directly from exported data.</li>
+      <li><strong>Ring control is not a good near-term target.</strong> Firmware, airplane mode, setup, find-ring, and live Bluetooth behavior are likely proprietary and fragile.</li>
+      <li><strong>Mobile freshness matters.</strong> Without background sync and notifications, the Android app will feel behind the official app even if the charts are better.</li>
+      <li><strong>Health advice needs guardrails.</strong> AI output should cite data, avoid diagnosis, and recommend professional care for concerning symptoms.</li>
+    </ul>
+
+    <h2>Sources</h2>
+    <div class="sources">
+      <div class="source">
+        <a href="https://support.ouraring.com/hc/en-us/articles/42987005571859-How-to-Use-the-Oura-App">Oura Help: How to Use the Oura App</a>
+        <span>Today, Vitals, My Health, menus, device controls, reports, integrations, and action features.</span>
+      </div>
+      <div class="source">
+        <a href="https://support.ouraring.com/hc/en-us/sections/4415723869331-App-Features">Oura Help: App Features</a>
+        <span>Official feature categories including readiness, sleep, activity, heart health, stress, insights, and mindfulness.</span>
+      </div>
+      <div class="source">
+        <a href="https://support.ouraring.com/hc/en-us/articles/35593651188115-Symptom-Radar">Oura Help: Symptom Radar</a>
+        <span>Strain detection inputs, availability, data requirements, and no/minor/major sign model.</span>
+      </div>
+      <div class="source">
+        <a href="https://apps.apple.com/us/app/oura/id1043837948">Apple App Store: Oura App</a>
+        <span>Official customer-facing app positioning, daily scores, biometric framing, and app availability.</span>
+      </div>
+    </div>
+
+    <h2>Local Evidence Reviewed</h2>
+    <ul>
+      <li>README.md: project positioning, data export/import, local SQLite, custom dashboards, and AI analyst.</li>
+      <li>backend/src/models.py and backend/src/api/routes.py: imported/stored Oura domains, dynamic queries, dashboard config, sync, and chat endpoints.</li>
+      <li>frontend/src/components/layout/AppShell.tsx and HealthSidebar.tsx: desktop app navigation, core views, dashboard editor, settings, sync, and analyst panel.</li>
+      <li>frontend/src/components/views/TodayView.tsx: Today summary, three core score cards, quick metrics, tags, and 30-day trends.</li>
+      <li>android-mobile app code and docs/android-mobile-sync.md: Android tabs, manual snapshot sync, offline cache, derived metrics, day detail, trends, and known limits.</li>
+    </ul>
+  </main>
+</body>
+</html>

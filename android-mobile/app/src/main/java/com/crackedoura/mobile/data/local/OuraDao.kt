@@ -28,4 +28,25 @@ interface OuraDao {
 
     @Query("DELETE FROM workouts WHERE day < :fromDay")
     suspend fun deleteWorkoutsBefore(fromDay: String)
+
+    @Query("SELECT * FROM day_insights WHERE day = :day LIMIT 1")
+    fun observeInsightsForDay(day: String): Flow<InsightsEntity?>
+
+    @Query("SELECT * FROM day_insights WHERE day = :day LIMIT 1")
+    suspend fun getInsightsForDay(day: String): InsightsEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertInsights(item: InsightsEntity)
+
+    @Query("DELETE FROM day_insights WHERE day < :fromDay")
+    suspend fun deleteInsightsBefore(fromDay: String)
+
+    @Query("SELECT * FROM sync_state WHERE id = 1 LIMIT 1")
+    fun observeSyncState(): Flow<SyncStateEntity?>
+
+    @Query("SELECT * FROM sync_state WHERE id = 1 LIMIT 1")
+    suspend fun getSyncState(): SyncStateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSyncState(item: SyncStateEntity)
 }

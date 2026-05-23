@@ -29,6 +29,7 @@ DEFAULT_CONFIG = {
     "mobile_sync_default_window_days": 180,
     "mobile_sync_bind_host": "0.0.0.0",
     "mobile_sync_port": 8037,
+    "last_export_request_at": None,
 }
 
 DEFAULT_DASHBOARD = {"dashboard": {"dashboards": [], "activeDashboardId": None}}

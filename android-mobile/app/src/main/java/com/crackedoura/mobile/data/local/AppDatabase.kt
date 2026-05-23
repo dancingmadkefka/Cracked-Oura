@@ -8,8 +8,13 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [DailySummaryEntity::class, WorkoutEntity::class],
-    version = 2,
+    entities = [
+        DailySummaryEntity::class,
+        WorkoutEntity::class,
+        InsightsEntity::class,
+        SyncStateEntity::class,
+    ],
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,12 +41,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS day_insights (" +
+                        "day TEXT NOT NULL PRIMARY KEY, " +
+                        "payloadJson TEXT NOT NULL, " +
+                        "fetchedAt TEXT NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS sync_state (" +
+                        "id INTEGER NOT NULL PRIMARY KEY, " +
+                        "freshnessJson TEXT, " +
+                        "latestInsightsDay TEXT)"
+                )
+            }
+        }
+
         fun build(context: Context): AppDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java,
                 "cracked_oura_mobile.db",
-            ).addMigrations(MIGRATION_1_2).build()
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
         }
     }
 }

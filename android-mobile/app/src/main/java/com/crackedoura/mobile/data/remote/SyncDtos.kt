@@ -23,6 +23,91 @@ data class MobileSyncResponseDto(
     @SerialName("available_start_day") val availableStartDay: String? = null,
     val days: List<DailySummaryDto> = emptyList(),
     val workouts: List<WorkoutDto> = emptyList(),
+    @SerialName("today_insights") val todayInsights: TodayInsightsDto? = null,
+    @SerialName("sync_freshness") val syncFreshness: SyncFreshnessDto? = null,
+)
+
+@Serializable
+data class ContributorSummaryDto(
+    val domain: String,
+    val key: String,
+    val label: String,
+    val status: String,
+    val value: Int? = null,
+    val unit: String,
+    val explanation: String,
+    @SerialName("source_path") val sourcePath: String,
+)
+
+@Serializable
+data class BaselineDeltaDto(
+    val metric: String,
+    val label: String,
+    val unit: String,
+    val current: Float? = null,
+    @SerialName("baseline_7d") val baseline7d: Float? = null,
+    @SerialName("baseline_14d") val baseline14d: Float? = null,
+    @SerialName("baseline_30d") val baseline30d: Float? = null,
+    @SerialName("delta_7d") val delta7d: Float? = null,
+    @SerialName("delta_14d") val delta14d: Float? = null,
+    @SerialName("delta_30d") val delta30d: Float? = null,
+    val direction: String? = null,
+    @SerialName("sample_count_7d") val sampleCount7d: Int = 0,
+    @SerialName("sample_count_14d") val sampleCount14d: Int = 0,
+    @SerialName("sample_count_30d") val sampleCount30d: Int = 0,
+    val preferred: String? = null,
+)
+
+@Serializable
+data class ActionEvidenceDto(
+    val metric: String,
+    val day: String? = null,
+    @SerialName("source_path") val sourcePath: String,
+)
+
+@Serializable
+data class ActionCardDto(
+    val id: String,
+    val day: String,
+    val severity: String,
+    val category: String,
+    val title: String,
+    val reason: String,
+    val recommendation: String,
+    val evidence: List<ActionEvidenceDto> = emptyList(),
+    val dismissible: Boolean = true,
+)
+
+@Serializable
+data class DailyGuidanceDto(
+    val day: String,
+    val headline: String,
+    val body: List<String> = emptyList(),
+)
+
+@Serializable
+data class TodayInsightsDto(
+    val day: String? = null,
+    @SerialName("contributors_sleep") val contributorsSleep: List<ContributorSummaryDto> = emptyList(),
+    @SerialName("contributors_readiness") val contributorsReadiness: List<ContributorSummaryDto> = emptyList(),
+    @SerialName("contributors_activity") val contributorsActivity: List<ContributorSummaryDto> = emptyList(),
+    val baselines: List<BaselineDeltaDto> = emptyList(),
+    @SerialName("action_cards") val actionCards: List<ActionCardDto> = emptyList(),
+    val guidance: DailyGuidanceDto? = null,
+)
+
+@Serializable
+data class SyncFreshnessDto(
+    @SerialName("latest_day") val latestDay: String? = null,
+    @SerialName("last_ingest_at") val lastIngestAt: String? = null,
+    @SerialName("last_export_request_at") val lastExportRequestAt: String? = null,
+    val status: String,
+    val message: String? = null,
+    @SerialName("mobile_server_enabled") val mobileServerEnabled: Boolean = false,
+    @SerialName("mobile_server_status") val mobileServerStatus: String? = null,
+    @SerialName("automation_status") val automationStatus: String? = null,
+    @SerialName("next_run") val nextRun: String? = null,
+    @SerialName("days_behind") val daysBehind: Int? = null,
 )
 
 @Serializable

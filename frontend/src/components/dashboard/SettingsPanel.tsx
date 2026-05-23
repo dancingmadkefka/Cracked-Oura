@@ -7,6 +7,8 @@ import { cn, parseLocalDate } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { api, type AutomationStatusResponse, type MobileSyncSettings } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
+import { useSyncFreshness } from '@/hooks/useInsights';
+import { SyncFreshnessChip } from '@/components/health/InsightsPanels';
 
 interface SettingsPanelProps {
     onClose: () => void;
@@ -25,6 +27,7 @@ interface AutomationState {
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
     const [automation, setAutomation] = useState<AutomationState | null>(null);
+    const { freshness } = useSyncFreshness();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [email, setEmail] = useState('');
@@ -411,6 +414,48 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 {/* ─── Sync Data ─── */}
                 <div className="space-y-3">
                     <h3 className="text-[10px] font-medium text-white/40 uppercase tracking-[0.24em]">Sync Data</h3>
+
+                    {freshness && (
+                        <div className="glass-card rounded-2xl p-4 space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                                <span className="text-white/60">Status</span>
+                                <SyncFreshnessChip freshness={freshness} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                <div className="space-y-0.5">
+                                    <p className="text-white/40 uppercase tracking-wider text-[9px]">Latest day</p>
+                                    <p className="text-white/80 tabular-nums">{freshness.latest_day ?? '—'}</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-white/40 uppercase tracking-wider text-[9px]">Days behind</p>
+                                    <p className="text-white/80 tabular-nums">{freshness.days_behind ?? '—'}</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-white/40 uppercase tracking-wider text-[9px]">Last ingest</p>
+                                    <p className="text-white/80 tabular-nums">{freshness.last_ingest_at ?? '—'}</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-white/40 uppercase tracking-wider text-[9px]">Last export request</p>
+                                    <p className="text-white/80 tabular-nums">{freshness.last_export_request_at ?? '—'}</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-white/40 uppercase tracking-wider text-[9px]">Mobile server</p>
+                                    <p className="text-white/80">
+                                        {freshness.mobile_server_enabled
+                                            ? (freshness.mobile_server_status ?? 'enabled')
+                                            : 'disabled'}
+                                    </p>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-white/40 uppercase tracking-wider text-[9px]">Automation</p>
+                                    <p className="text-white/80">{freshness.automation_status ?? '—'}</p>
+                                </div>
+                            </div>
+                            {freshness.message && (
+                                <p className="text-[11px] text-white/50">{freshness.message}</p>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Button

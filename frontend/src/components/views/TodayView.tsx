@@ -6,6 +6,13 @@ import { MiniTrendStrip } from '@/components/health/MiniTrendStrip';
 import { HeartPulse, Moon, Flame, Sparkles, ArrowUpRight, ChevronRight, Footprints, Heart, Zap, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import type { AppView } from '@/types/app-view';
+import { useInsights, useSyncFreshness } from '@/hooks/useInsights';
+import {
+  ActionCardsList,
+  ContributorGrid,
+  GuidanceBlock,
+  SyncFreshnessChip,
+} from '@/components/health/InsightsPanels';
 
 interface TodayViewProps {
   onNavigate: (view: AppView) => void;
@@ -27,6 +34,9 @@ function getScoreLabel(score: number): string {
 export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
   const { data, isDataLoading, selectedDate } = useDashboard();
   const [animateIn, setAnimateIn] = useState(false);
+  const dayKey = format(selectedDate, 'yyyy-MM-dd');
+  const insights = useInsights(dayKey);
+  const { freshness } = useSyncFreshness();
 
   useEffect(() => {
     setAnimateIn(false);
@@ -42,7 +52,7 @@ export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
     );
   }
 
-  const summary = buildDaySummary(data, format(selectedDate, 'yyyy-MM-dd'));
+  const summary = buildDaySummary(data, dayKey);
   const greeting = timeOfDay === 'morning' ? 'Good morning' : timeOfDay === 'afternoon' ? 'Good afternoon' : 'Good evening';
 
   const scores = [
@@ -77,20 +87,25 @@ export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
       {/* Atmospheric Greeting Banner */}
       <div className="relative overflow-hidden rounded-3xl glass-card p-8 shadow-2xl">
         <div className="relative z-10 space-y-3">
-          <div className="inline-flex items-center gap-2 bg-white/[0.06] border border-white/[0.08] px-3 py-1 rounded-full text-xs text-enso-blue font-medium backdrop-blur-sm">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Daily Health Summary</span>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="inline-flex items-center gap-2 bg-white/[0.06] border border-white/[0.08] px-3 py-1 rounded-full text-xs text-enso-blue font-medium backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Daily Health Summary</span>
+            </div>
+            <SyncFreshnessChip freshness={freshness} />
           </div>
-          <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight tracking-wide">
-            {greeting}, <span className="text-enso-blue">User</span>
-          </h2>
-          <p className="text-sm text-white/50 leading-relaxed max-w-2xl">
-            {timeOfDay === 'morning'
-              ? 'Your readiness is optimal today. A great day to be active.'
-              : timeOfDay === 'afternoon'
-              ? 'Your body is in a restored state. Steady energy levels throughout the day.'
-              : 'Time to wind down. Your body is preparing for rest.'}
-          </p>
+          {insights.guidance ? (
+            <GuidanceBlock guidance={insights.guidance} />
+          ) : (
+            <>
+              <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight tracking-wide">
+                {greeting}
+              </h2>
+              <p className="text-sm text-white/50 leading-relaxed max-w-2xl">
+                Loading deterministic guidance for {dayKey}…
+              </p>
+            </>
+          )}
           <div className="flex flex-wrap items-center gap-4 pt-2 text-sm text-white/40">
             {summary.metrics.resilience && (
               <div className="flex items-center gap-2">
@@ -113,6 +128,9 @@ export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
           </div>
         </div>
       </div>
+
+      {/* Today's action cards (above scores) */}
+      <ActionCardsList cards={insights.actionCards} />
 
       {/* Three Core Score Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -191,6 +209,15 @@ export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
           <p className="text-xs text-white/30">No tags logged</p>
         )}
       </div>
+
+      {/* Contributors (sleep / readiness / activity) */}
+      {insights.contributors && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <ContributorGrid title="Sleep contributors" items={insights.contributors.sleep} />
+          <ContributorGrid title="Readiness contributors" items={insights.contributors.readiness} />
+          <ContributorGrid title="Activity contributors" items={insights.contributors.activity} />
+        </div>
+      )}
 
       {/* 30-Day Trends */}
       <div className="rounded-xl glass-card p-4 space-y-3">

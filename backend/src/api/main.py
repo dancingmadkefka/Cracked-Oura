@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from backend.src.api.routes import router
 from backend.src.api.mobile import router as mobile_router
+from backend.src.api.insights import router as insights_router
 from backend.src.database import init_db, SessionLocal
 from backend.src.automation import automator
 from backend.src.ingestion import OuraParser
@@ -75,6 +76,7 @@ app.add_middleware(
 # Include routers
 app.include_router(router)
 app.include_router(mobile_router)
+app.include_router(insights_router)
 
 # --- API Models for Automation ---
 class AutomationConfig(BaseModel):
@@ -303,7 +305,10 @@ async def run_ingestion_task(force=False):
         
         # 2. Run Full Automation (Request -> Wait -> Download)
         config_manager.update_status("Running Automation...")
-        
+        config_manager.update_config(
+            last_export_request_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+
         # Use user data dir for downloads
         from backend.src.paths import get_user_data_dir
         save_dir = str(get_user_data_dir())

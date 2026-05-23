@@ -27,6 +27,12 @@ interface MobileApiService {
         @Header("X-Cracked-Oura-Token") token: String,
         @Query("window_days") windowDays: Int,
     ): MobileSyncResponseDto
+
+    @GET
+    suspend fun insightsForDay(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+    ): TodayInsightsDto
 }
 
 object MobileApiServiceFactory {

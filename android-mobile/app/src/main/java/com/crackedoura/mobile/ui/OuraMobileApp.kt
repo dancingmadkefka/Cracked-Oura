@@ -327,6 +327,7 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                 }
 
                 composable(AppDestination.Settings.route) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     SettingsScreen(
                         padding = padding,
                         uiState = uiState,
@@ -334,6 +335,9 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                         onSaveAndSync = viewModel::saveSettingsAndSync,
                         onDarkModeToggle = viewModel::setDarkMode,
                         onSaveUserName = viewModel::saveUserName,
+                        onSaveBackgroundSyncInterval = { hours ->
+                            viewModel.saveBackgroundSyncInterval(context, hours)
+                        },
                     )
                 }
 
@@ -342,11 +346,22 @@ fun OuraMobileApp(viewModel: MainViewModel) {
                     arguments = listOf(navArgument("day") { type = NavType.StringType }),
                 ) { entry ->
                     val day = entry.arguments?.getString("day")
+                    val dayInsightsFlow = androidx.compose.runtime.remember(day) {
+                        if (day != null) viewModel.observeInsightsForDay(day)
+                        else kotlinx.coroutines.flow.flowOf(null)
+                    }
+                    val dayInsights by dayInsightsFlow
+                        .collectAsStateWithLifecycle(initialValue = null)
+                    LaunchedEffect(day) {
+                        if (day != null) viewModel.requestInsightsForDay(day)
+                    }
                     DayDetailScreen(
                         padding = padding,
                         insight = insights.firstOrNull { it.day == day },
                         isSyncing = uiState.isSyncing,
                         onSync = viewModel::syncNow,
+                        dayInsights = dayInsights ?: uiState.todayInsights?.takeIf { it.day == day },
+                        syncFreshness = uiState.syncFreshness,
                     )
                 }
             }

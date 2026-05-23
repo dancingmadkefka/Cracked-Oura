@@ -26,6 +26,11 @@ data class SyncSettings(
     val lastUsedUrl: String? = null,
     /** First name shown in personalised greeting. */
     val userName: String = "",
+    /** Background sync interval in hours. 0 means off/manual. Valid: 0, 6, 12, 24. */
+    val backgroundSyncIntervalHours: Int = 0,
+    val lastBackgroundRunAt: String? = null,
+    val nextBackgroundRunAt: String? = null,
+    val lastBackgroundError: String? = null,
     /** Kept for legacy migration. Read-only. */
     val _legacyServerUrl: String = "",
 )
@@ -43,6 +48,10 @@ class SyncPreferencesRepository(private val context: Context) {
         val darkMode = stringPreferencesKey("dark_mode")
         val lastUsedUrl = stringPreferencesKey("last_used_url")
         val userName = stringPreferencesKey("user_name")
+        val backgroundSyncIntervalHours = intPreferencesKey("background_sync_interval_hours")
+        val lastBackgroundRunAt = stringPreferencesKey("last_background_run_at")
+        val nextBackgroundRunAt = stringPreferencesKey("next_background_run_at")
+        val lastBackgroundError = stringPreferencesKey("last_background_error")
     }
 
     val settings: Flow<SyncSettings> = context.syncPreferencesDataStore.data
@@ -71,6 +80,10 @@ class SyncPreferencesRepository(private val context: Context) {
                 },
                 lastUsedUrl = preferences[Keys.lastUsedUrl],
                 userName = preferences[Keys.userName].orEmpty(),
+                backgroundSyncIntervalHours = preferences[Keys.backgroundSyncIntervalHours] ?: 0,
+                lastBackgroundRunAt = preferences[Keys.lastBackgroundRunAt],
+                nextBackgroundRunAt = preferences[Keys.nextBackgroundRunAt],
+                lastBackgroundError = preferences[Keys.lastBackgroundError],
                 _legacyServerUrl = legacyUrl,
             )
         }
@@ -128,6 +141,45 @@ class SyncPreferencesRepository(private val context: Context) {
     suspend fun recordSuccessfulUrl(url: String) {
         context.syncPreferencesDataStore.edit { preferences ->
             preferences[Keys.lastUsedUrl] = url
+        }
+    }
+
+    suspend fun saveBackgroundSyncInterval(hours: Int) {
+        context.syncPreferencesDataStore.edit { preferences ->
+            preferences[Keys.backgroundSyncIntervalHours] = hours
+            if (hours <= 0) {
+                preferences.remove(Keys.nextBackgroundRunAt)
+            }
+        }
+    }
+
+    suspend fun recordBackgroundRun(
+        timestamp: String,
+        error: String?,
+        nextRunAt: String?,
+    ) {
+        context.syncPreferencesDataStore.edit { preferences ->
+            preferences[Keys.lastBackgroundRunAt] = timestamp
+            if (error == null) {
+                preferences.remove(Keys.lastBackgroundError)
+            } else {
+                preferences[Keys.lastBackgroundError] = error
+            }
+            if (nextRunAt != null) {
+                preferences[Keys.nextBackgroundRunAt] = nextRunAt
+            } else {
+                preferences.remove(Keys.nextBackgroundRunAt)
+            }
+        }
+    }
+
+    suspend fun recordNextBackgroundRun(nextRunAt: String?) {
+        context.syncPreferencesDataStore.edit { preferences ->
+            if (nextRunAt != null) {
+                preferences[Keys.nextBackgroundRunAt] = nextRunAt
+            } else {
+                preferences.remove(Keys.nextBackgroundRunAt)
+            }
         }
     }
 }

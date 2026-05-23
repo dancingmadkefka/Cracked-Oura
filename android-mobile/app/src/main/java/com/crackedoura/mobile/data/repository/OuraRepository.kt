@@ -3,14 +3,23 @@ package com.crackedoura.mobile.data.repository
 import androidx.room.withTransaction
 import com.crackedoura.mobile.data.local.AppDatabase
 import com.crackedoura.mobile.data.local.DailySummaryEntity
+import com.crackedoura.mobile.data.local.InsightsEntity
 import com.crackedoura.mobile.data.local.OuraDao
+import com.crackedoura.mobile.data.local.SyncStateEntity
 import com.crackedoura.mobile.data.local.WorkoutEntity
 import com.crackedoura.mobile.data.remote.MobileApiService
 import com.crackedoura.mobile.data.remote.MobileSyncResponseDto
+import com.crackedoura.mobile.data.remote.SyncFreshnessDto
+import com.crackedoura.mobile.data.remote.TodayInsightsDto
 import com.crackedoura.mobile.data.remote.toEntity
 import com.crackedoura.mobile.util.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
 
 class SyncFailureException(
     message: String,
@@ -25,6 +34,121 @@ class OuraRepository(
 ) {
     private companion object {
         const val TAG = "Repository"
+    }
+
+    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+
+    private val todayInsightsState = MutableStateFlow<TodayInsightsDto?>(null)
+    private val syncFreshnessState = MutableStateFlow<SyncFreshnessDto?>(null)
+
+    fun observeTodayInsights(): StateFlow<TodayInsightsDto?> = todayInsightsState.asStateFlow()
+    fun observeSyncFreshness(): StateFlow<SyncFreshnessDto?> = syncFreshnessState.asStateFlow()
+
+    fun observeInsightsForDay(day: String): Flow<TodayInsightsDto?> =
+        dao.observeInsightsForDay(day).map { entity ->
+            entity?.let { decodeInsightsOrNull(it.payloadJson) }
+        }
+
+    suspend fun loadPersistedState() {
+        val state = runCatching { dao.getSyncState() }.getOrNull() ?: return
+        state.freshnessJson?.let { freshnessJson ->
+            decodeFreshnessOrNull(freshnessJson)?.let { syncFreshnessState.value = it }
+        }
+        val latestDay = state.latestInsightsDay ?: return
+        val insightsEntity = runCatching { dao.getInsightsForDay(latestDay) }.getOrNull() ?: return
+        decodeInsightsOrNull(insightsEntity.payloadJson)?.let { todayInsightsState.value = it }
+    }
+
+    suspend fun ensureInsightsFor(day: String): Result<Unit> {
+        val cached = runCatching { dao.getInsightsForDay(day) }.getOrNull()
+        if (cached != null) return Result.success(Unit)
+        return fetchInsightsFor(day)
+    }
+
+    suspend fun fetchInsightsFor(day: String): Result<Unit> {
+        val settings = try {
+            preferencesRepository.currentSettings()
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
+            return Result.failure(t)
+        }
+        if (settings.token.isBlank()) {
+            return Result.failure(IllegalStateException("Missing sync token."))
+        }
+        val candidates = try {
+            candidatesInOrder(settings)
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
+            return Result.failure(t)
+        }
+        if (candidates.isEmpty()) return Result.failure(IllegalStateException("No server configured."))
+
+        var lastError: Throwable? = null
+        for (candidate in candidates) {
+            try {
+                val validated = SyncConfigValidator.validatedConfigForSave(candidate, settings.token, settings.windowDays)
+                val payload = apiService.insightsForDay(
+                    url = "${validated.serverUrl}/api/mobile/insights/$day",
+                    token = validated.token,
+                )
+                persistInsights(day, payload, updateLatest = false)
+                return Result.success(Unit)
+            } catch (t: CancellationException) {
+                throw t
+            } catch (t: Throwable) {
+                AppLogger.w(TAG, "Per-day insights fetch failed url=$candidate day=$day", t)
+                lastError = t
+            }
+        }
+        return Result.failure(lastError ?: IllegalStateException("Insights fetch failed."))
+    }
+
+    private fun decodeInsightsOrNull(payload: String): TodayInsightsDto? = try {
+        json.decodeFromString(TodayInsightsDto.serializer(), payload)
+    } catch (t: Throwable) {
+        AppLogger.w(TAG, "Failed to decode persisted insights", t)
+        null
+    }
+
+    private fun decodeFreshnessOrNull(payload: String): SyncFreshnessDto? = try {
+        json.decodeFromString(SyncFreshnessDto.serializer(), payload)
+    } catch (t: Throwable) {
+        AppLogger.w(TAG, "Failed to decode persisted freshness", t)
+        null
+    }
+
+    private suspend fun persistInsights(
+        day: String,
+        payload: TodayInsightsDto,
+        updateLatest: Boolean,
+    ) {
+        val encoded = json.encodeToString(TodayInsightsDto.serializer(), payload)
+        val now = java.time.Instant.now().toString()
+        dao.upsertInsights(InsightsEntity(day = day, payloadJson = encoded, fetchedAt = now))
+        if (updateLatest) {
+            val existing = dao.getSyncState()
+            dao.upsertSyncState(
+                SyncStateEntity(
+                    id = 1,
+                    freshnessJson = existing?.freshnessJson,
+                    latestInsightsDay = day,
+                ),
+            )
+        }
+    }
+
+    private suspend fun persistFreshness(freshness: SyncFreshnessDto?) {
+        val encoded = freshness?.let { json.encodeToString(SyncFreshnessDto.serializer(), it) }
+        val existing = dao.getSyncState()
+        dao.upsertSyncState(
+            SyncStateEntity(
+                id = 1,
+                freshnessJson = encoded,
+                latestInsightsDay = existing?.latestInsightsDay,
+            ),
+        )
     }
 
     fun observeSettings(): Flow<SyncSettings> = preferencesRepository.settings
@@ -54,6 +178,29 @@ class OuraRepository(
     ) {
         preferencesRepository.saveSettings(localServerUrl, tailscaleServerUrl, preferredNetwork, token, windowDays)
         AppLogger.i(TAG, "Settings saved windowDays=$windowDays")
+    }
+
+    suspend fun saveBackgroundSyncInterval(hours: Int) {
+        preferencesRepository.saveBackgroundSyncInterval(hours)
+        AppLogger.i(TAG, "Background sync interval saved hours=$hours")
+    }
+
+    suspend fun recordBackgroundResult(errorMessage: String?) {
+        val currentHours = preferencesRepository.currentSettings().backgroundSyncIntervalHours
+        val nextRun = if (currentHours > 0) {
+            java.time.Instant.now()
+                .plus(currentHours.toLong(), java.time.temporal.ChronoUnit.HOURS)
+                .toString()
+        } else null
+        preferencesRepository.recordBackgroundRun(
+            timestamp = java.time.Instant.now().toString(),
+            error = errorMessage,
+            nextRunAt = nextRun,
+        )
+    }
+
+    suspend fun recordNextBackgroundRun(nextRunAt: String?) {
+        preferencesRepository.recordNextBackgroundRun(nextRunAt)
     }
 
     private suspend fun candidatesInOrder(settings: SyncSettings): List<String> {
@@ -148,6 +295,15 @@ class OuraRepository(
             workouts = workouts,
             availableStartDay = response.availableStartDay,
         )
+        todayInsightsState.value = response.todayInsights
+        syncFreshnessState.value = response.syncFreshness
+        val insightsDay = response.todayInsights?.day
+        if (response.todayInsights != null && !insightsDay.isNullOrBlank()) {
+            runCatching { persistInsights(insightsDay, response.todayInsights, updateLatest = true) }
+                .onFailure { AppLogger.w(TAG, "Failed to persist today insights day=$insightsDay", it) }
+        }
+        runCatching { persistFreshness(response.syncFreshness) }
+            .onFailure { AppLogger.w(TAG, "Failed to persist sync freshness", it) }
         AppLogger.i(TAG, "Sync persisted url=${validated.serverUrl} summaries=${summaries.size} workouts=${workouts.size}")
         return response
     }
@@ -180,6 +336,7 @@ class OuraRepository(
             if (!availableStartDay.isNullOrBlank()) {
                 dao.deleteSummariesBefore(availableStartDay)
                 dao.deleteWorkoutsBefore(availableStartDay)
+                dao.deleteInsightsBefore(availableStartDay)
             }
         }
     }

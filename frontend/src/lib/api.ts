@@ -27,6 +27,86 @@ export interface ChatThreadWithMessages extends ChatThread {
     messages: ChatMessage[];
 }
 
+export interface ContributorSummary {
+    domain: string;
+    key: string;
+    label: string;
+    status: 'optimal' | 'good' | 'fair' | 'pay_attention' | 'missing';
+    value: number | null;
+    unit: string;
+    explanation: string;
+    source_path: string;
+}
+
+export interface ContributorBundle {
+    day: string;
+    sleep: ContributorSummary[];
+    readiness: ContributorSummary[];
+    activity: ContributorSummary[];
+}
+
+export interface BaselineDelta {
+    metric: string;
+    label: string;
+    unit: string;
+    current: number | null;
+    baseline_7d: number | null;
+    baseline_14d: number | null;
+    baseline_30d: number | null;
+    delta_7d: number | null;
+    delta_14d: number | null;
+    delta_30d: number | null;
+    direction: 'up' | 'down' | 'flat' | null;
+    sample_count_7d: number;
+    sample_count_14d: number;
+    sample_count_30d: number;
+    preferred: 'higher' | 'lower' | null;
+}
+
+export interface BaselineBundle {
+    day: string;
+    deltas: BaselineDelta[];
+}
+
+export interface ActionEvidence {
+    metric: string;
+    value: any;
+    day: string | null;
+    source_path: string;
+}
+
+export interface ActionCard {
+    id: string;
+    day: string;
+    severity: 'critical' | 'warning' | 'info';
+    category: 'sync' | 'recovery' | 'sleep' | 'activity' | 'data' | 'device';
+    title: string;
+    reason: string;
+    recommendation: string;
+    evidence: ActionEvidence[];
+    dismissible: boolean;
+}
+
+export interface DailyGuidance {
+    day: string;
+    headline: string;
+    body: string[];
+    citations: Array<Record<string, any>>;
+}
+
+export interface SyncFreshness {
+    latest_day: string | null;
+    last_ingest_at: string | null;
+    last_export_request_at: string | null;
+    status: 'fresh' | 'stale' | 'very_stale' | 'empty' | 'syncing' | 'blocked';
+    message: string | null;
+    mobile_server_enabled: boolean;
+    mobile_server_status: string | null;
+    automation_status: string | null;
+    next_run: string | null;
+    days_behind: number | null;
+}
+
 export interface MobileSyncSettings {
     enabled: boolean;
     token: string;
@@ -307,6 +387,37 @@ export const api = {
     }> => {
         const res = await fetch(`${BASE_URL}/api/automation/check-status`, { method: 'POST' });
         if (!res.ok) throw new Error('Failed to fetch sync status');
+        return res.json();
+    },
+
+    // --- Insights (Phase 1) ---
+    getContributors: async (day: string): Promise<ContributorBundle> => {
+        const res = await fetch(`${BASE_URL}/api/insights/contributors/${day}`);
+        if (!res.ok) throw new Error('Failed to fetch contributors');
+        return res.json();
+    },
+
+    getBaselines: async (day: string): Promise<BaselineBundle> => {
+        const res = await fetch(`${BASE_URL}/api/insights/baselines/${day}`);
+        if (!res.ok) throw new Error('Failed to fetch baselines');
+        return res.json();
+    },
+
+    getActionCards: async (day: string): Promise<ActionCard[]> => {
+        const res = await fetch(`${BASE_URL}/api/insights/action-cards/${day}`);
+        if (!res.ok) throw new Error('Failed to fetch action cards');
+        return res.json();
+    },
+
+    getGuidance: async (day: string): Promise<DailyGuidance> => {
+        const res = await fetch(`${BASE_URL}/api/insights/guidance/${day}`);
+        if (!res.ok) throw new Error('Failed to fetch guidance');
+        return res.json();
+    },
+
+    getSyncFreshness: async (): Promise<SyncFreshness> => {
+        const res = await fetch(`${BASE_URL}/api/insights/sync-freshness`);
+        if (!res.ok) throw new Error('Failed to fetch sync freshness');
         return res.json();
     },
 };
