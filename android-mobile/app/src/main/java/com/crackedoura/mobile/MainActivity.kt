@@ -25,7 +25,10 @@ class MainActivity : ComponentActivity() {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val useDarkTheme = uiState.darkMode ?: isSystemInDarkTheme()
             CrackedOuraMobileTheme(darkTheme = useDarkTheme) {
-                OuraMobileApp(viewModel = viewModel)
+                OuraMobileApp(
+                    viewModel = viewModel,
+                    repository = (application as CrackedOuraMobileApplication).repository,
+                )
             }
         }
     }

@@ -7,11 +7,17 @@ import com.crackedoura.mobile.data.local.InsightsEntity
 import com.crackedoura.mobile.data.local.OuraDao
 import com.crackedoura.mobile.data.local.SyncStateEntity
 import com.crackedoura.mobile.data.local.WorkoutEntity
+import com.crackedoura.mobile.data.remote.AnomalyResponseDto
+import com.crackedoura.mobile.data.remote.CorrelationResponseDto
+import com.crackedoura.mobile.data.remote.InvestigationCreateDto
+import com.crackedoura.mobile.data.remote.MetricSpecDto
 import com.crackedoura.mobile.data.remote.MobileApiService
 import com.crackedoura.mobile.data.remote.MobileSyncResponseDto
+import com.crackedoura.mobile.data.remote.SavedInvestigationDto
 import com.crackedoura.mobile.data.remote.SyncFreshnessDto
 import com.crackedoura.mobile.data.remote.TodayInsightsDto
 import com.crackedoura.mobile.data.remote.toEntity
+import kotlinx.serialization.json.JsonObject
 import com.crackedoura.mobile.util.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -219,6 +225,57 @@ class OuraRepository(
         val unreachable = raw.filter { url -> reachable.none { it == url } }
         return reachable + unreachable
     }
+
+    // ── Phase 2: Analysis ─────────────────────────────────────────────────────
+
+    /** Call [block] against the first reachable server URL in priority order. */
+    private suspend fun <T> withFirstServer(block: suspend (serverUrl: String, token: String) -> T): Result<T> {
+        val settings = try {
+            preferencesRepository.currentSettings()
+        } catch (t: CancellationException) { throw t } catch (t: Throwable) { return Result.failure(t) }
+        if (settings.token.isBlank()) return Result.failure(IllegalStateException("Missing sync token."))
+        val candidates = when (settings.preferredNetwork) {
+            "local" -> listOfNotNull(settings.localServerUrl.takeIf { it.isNotBlank() })
+            "tailscale" -> listOfNotNull(settings.tailscaleServerUrl.takeIf { it.isNotBlank() })
+            else -> listOfNotNull(
+                settings.localServerUrl.takeIf { it.isNotBlank() },
+                settings.tailscaleServerUrl.takeIf { it.isNotBlank() },
+            )
+        }
+        if (candidates.isEmpty()) return Result.failure(IllegalStateException("No server configured."))
+        var lastError: Throwable? = null
+        for (serverUrl in candidates) {
+            try { return Result.success(block(serverUrl, settings.token)) }
+            catch (t: CancellationException) { throw t }
+            catch (t: Throwable) { lastError = t }
+        }
+        return Result.failure(lastError ?: IllegalStateException("Request failed"))
+    }
+
+    suspend fun fetchCatalog(): Result<List<MetricSpecDto>> =
+        withFirstServer { url, token -> apiService.getAnalysisCatalog("$url/api/analysis/catalog", token) }
+
+    suspend fun runCorrelation(
+        xMetric: String, yMetric: String, lagDays: Int, method: String, startDate: String, endDate: String,
+    ): Result<CorrelationResponseDto> = withFirstServer { url, token ->
+        apiService.getCorrelation("$url/api/analysis/correlate", token, xMetric, yMetric, lagDays, method, startDate, endDate)
+    }
+
+    suspend fun fetchAnomalies(day: String, windowDays: Int = 14): Result<List<AnomalyResponseDto>> =
+        withFirstServer { url, token -> apiService.getAnomalies("$url/api/analysis/anomalies/$day", token, windowDays, 28) }
+
+    suspend fun listInvestigations(): Result<List<SavedInvestigationDto>> =
+        withFirstServer { url, token -> apiService.listInvestigations("$url/api/investigations", token) }
+
+    suspend fun createInvestigation(name: String, kind: String, payload: JsonObject?): Result<SavedInvestigationDto> =
+        withFirstServer { url, token ->
+            apiService.createInvestigation("$url/api/investigations", token, InvestigationCreateDto(name, kind, payload))
+        }
+
+    suspend fun deleteInvestigation(id: String): Result<Unit> =
+        withFirstServer { url, token -> apiService.deleteInvestigation("$url/api/investigations/$id", token) }
+
+    // ── Sync ──────────────────────────────────────────────────────────────────
 
     suspend fun syncNow(): Result<Unit> {
         val settings = try {

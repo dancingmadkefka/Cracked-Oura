@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,7 +46,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.crackedoura.mobile.data.repository.OuraRepository
 import com.crackedoura.mobile.ui.screens.AIAnalystScreen
+import com.crackedoura.mobile.ui.screens.AnalysisScreen
 import com.crackedoura.mobile.ui.screens.DayDetailScreen
 import com.crackedoura.mobile.ui.screens.OverviewScreen
 import com.crackedoura.mobile.ui.screens.SettingsScreen
@@ -137,6 +141,13 @@ private sealed class AppDestination(
         icon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI Analyst") },
     )
 
+    data object Explorer : AppDestination(
+        route = "explorer",
+        label = "Explorer",
+        title = "Explorer",
+        icon = { Icon(Icons.Outlined.Search, contentDescription = "Explorer") },
+    )
+
     data object Settings : AppDestination(
         route = "settings",
         label = "Settings",
@@ -156,18 +167,20 @@ private sealed class AppDestination(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OuraMobileApp(viewModel: MainViewModel) {
+fun OuraMobileApp(viewModel: MainViewModel, repository: OuraRepository) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val insights = remember(uiState.recentSummaries, uiState.recentWorkouts) {
         buildDailyInsights(uiState.recentSummaries, uiState.recentWorkouts)
     }
     val snackbarHostState = remember { SnackbarHostState() }
     val navController = rememberNavController()
+    val analysisViewModel: AnalysisViewModel = viewModel(factory = AnalysisViewModel.Factory(repository))
     val primaryDestinations = listOf(
         AppDestination.Overview,
         AppDestination.Sleep,
         AppDestination.Trends,
         AppDestination.Ai,
+        AppDestination.Explorer,
         AppDestination.Settings,
     )
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -324,6 +337,10 @@ fun OuraMobileApp(viewModel: MainViewModel) {
 
                 composable(AppDestination.Ai.route) {
                     AIAnalystScreen(padding = padding)
+                }
+
+                composable(AppDestination.Explorer.route) {
+                    AnalysisScreen(padding = padding, viewModel = analysisViewModel)
                 }
 
                 composable(AppDestination.Settings.route) {

@@ -8,8 +8,11 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Header
+import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
@@ -33,6 +36,55 @@ interface MobileApiService {
         @Url url: String,
         @Header("X-Cracked-Oura-Token") token: String,
     ): TodayInsightsDto
+
+    // ── Phase 2: Analysis endpoints ──────────────────────────────────────────
+
+    @GET
+    suspend fun getAnalysisCatalog(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+    ): List<MetricSpecDto>
+
+    @GET
+    suspend fun getCorrelation(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+        @Query("x_metric") xMetric: String,
+        @Query("y_metric") yMetric: String,
+        @Query("lag_days") lagDays: Int,
+        @Query("method") method: String,
+        @Query("start_date") startDate: String,
+        @Query("end_date") endDate: String,
+    ): CorrelationResponseDto
+
+    @GET
+    suspend fun getAnomalies(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+        @Query("window_days") windowDays: Int,
+        @Query("baseline_window") baselineWindow: Int,
+    ): List<AnomalyResponseDto>
+
+    // ── Phase 2: Investigation CRUD ───────────────────────────────────────────
+
+    @GET
+    suspend fun listInvestigations(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+    ): List<SavedInvestigationDto>
+
+    @POST
+    suspend fun createInvestigation(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+        @Body body: InvestigationCreateDto,
+    ): SavedInvestigationDto
+
+    @HTTP(method = "DELETE", hasBody = false)
+    suspend fun deleteInvestigation(
+        @Url url: String,
+        @Header("X-Cracked-Oura-Token") token: String,
+    )
 }
 
 object MobileApiServiceFactory {
