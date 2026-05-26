@@ -36,13 +36,7 @@ private fun statusTone(status: String): Color = when (status) {
     else -> Color.White.copy(alpha = 0.35f)
 }
 
-private fun statusLabel(status: String): String = when (status) {
-    "optimal" -> "Optimal"
-    "good" -> "Good"
-    "fair" -> "Fair"
-    "pay_attention" -> "Pay attention"
-    else -> "Not exported"
-}
+private fun statusLabel(status: String): String = contributorStatusLabel(status)
 
 private fun freshnessTone(status: String): Color = when (status) {
     "fresh" -> Color(0xFF18A685)
@@ -157,14 +151,4 @@ fun ContributorList(title: String, items: List<ContributorSummaryDto>) {
 fun SyncFreshnessPill(freshness: SyncFreshnessDto?) {
     if (freshness == null) return
     StatusPill(label = freshnessLabel(freshness.status), tone = freshnessTone(freshness.status))
-}
-
-@Composable
-fun TodayInsightsSection(insights: TodayInsightsDto?) {
-    insights ?: return
-    insights.guidance?.let { GuidanceCard(it) }
-    ActionCardsList(insights.actionCards)
-    ContributorList("Sleep contributors", insights.contributorsSleep)
-    ContributorList("Readiness contributors", insights.contributorsReadiness)
-    ContributorList("Activity contributors", insights.contributorsActivity)
 }

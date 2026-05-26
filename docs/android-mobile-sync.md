@@ -69,7 +69,8 @@ The desktop settings panel also shows the latest local Oura day and the command 
 
 ## Run the PC-side Sync Server
 
-From the repo root:
+The desktop app starts this automatically when **Mobile Sync** is enabled in Settings.
+You can also run it manually from the repo root:
 
 ```powershell
 .\backend\venv\Scripts\python.exe -m backend.src.mobile_server --host 0.0.0.0 --port 8037
@@ -77,6 +78,8 @@ From the repo root:
 
 Notes:
 
+- This is a **read-only LAN API**. It serves data from the desktop app's SQLite database and never logs into Oura or runs the daily export scheduler.
+- Oura export/login always happens on the **desktop backend** (port 8000 in dev).
 - `0.0.0.0` lets the phone reach the server over LAN or Tailscale.
 - The port should match what you configured in the desktop settings panel.
 - The API is token-protected. Mobile requests must send `X-Cracked-Oura-Token`.

@@ -95,12 +95,23 @@ fun SettingsScreen(
         item {
             HeroCard(
                 eyebrow = "Settings",
-                title = if (!hasEitherUrl || token.isBlank()) "Set up connection" else "Ready to sync",
+                title = if (!hasEitherUrl || token.isBlank()) "Connect to desktop" else "Ready to sync",
                 subtitle = when {
-                    !hasEitherUrl -> "Add at least one server address to get started."
-                    token.isBlank() -> "Add your sync token from the desktop app."
-                    else -> "Ready to sync."
+                    !hasEitherUrl -> "Enter your PC address (port 8037) on the same Wi‑Fi or Tailscale."
+                    token.isBlank() -> "Copy the Mobile Sync token from Cracked Oura → Settings on your PC."
+                    else -> "Pull the latest cache from your desktop app."
                 },
+            )
+        }
+
+        item {
+            DesktopRoleBanner()
+        }
+
+        item {
+            SyncFreshnessCard(
+                freshness = uiState.syncFreshness,
+                isPhoneSyncing = uiState.isSyncing,
             )
         }
 
@@ -131,12 +142,15 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = "Server addresses") {
+            SectionCard(
+                title = "Desktop server",
+                subtitle = "Points at the read-only Mobile Sync API on your PC (default port 8037).",
+            ) {
                 OutlinedTextField(
                     value = localServerUrl,
                     onValueChange = { localServerUrl = it },
                     label = { Text("LAN address") },
-                    placeholder = { Text("192.168.178.91") },
+                    placeholder = { Text("http://192.168.178.25:8037") },
                     supportingText = {
                         Text(
                             localValidation.errors.serverUrl
@@ -191,7 +205,10 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = "Sync token") {
+            SectionCard(
+                title = "Sync token",
+                subtitle = "Generated in Cracked Oura on your PC — not your Oura password.",
+            ) {
                 OutlinedTextField(
                     value = token,
                     onValueChange = { token = it.trimStart() },
@@ -215,7 +232,10 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = "Sync window") {
+            SectionCard(
+                title = "History window",
+                subtitle = "How many days of desktop data to copy to this phone.",
+            ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     presetWindowDays.forEach { preset ->
                         AssistChip(
@@ -240,9 +260,12 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = "Background sync") {
+            SectionCard(
+                title = "Background sync",
+                subtitle = "Re-copy from the desktop server on a schedule (does not contact Oura).",
+            ) {
                 Text(
-                    text = "Run sync in the background while connected to a network.",
+                    text = "Runs while the phone has network access and your PC server is reachable.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.55f),
                 )
@@ -309,8 +332,8 @@ fun SettingsScreen(
                     tone = if (!hasEitherUrl || token.isBlank() || hasWindowError) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
                 )
                 Text(
-                    text = uiState.settings.lastSyncAt?.let { "Last sync: ${formatDateTimeLabel(it)}" }
-                        ?: "No completed sync yet.",
+                    text = uiState.settings.lastSyncAt?.let { "Last phone sync: ${formatDateTimeLabel(it)}" }
+                        ?: "No completed phone sync yet.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.45f),
                 )
@@ -368,7 +391,7 @@ fun SettingsScreen(
                             strokeWidth = 2.dp,
                         )
                     }
-                    Text(if (uiState.isSyncing) "Syncing..." else "Save and sync")
+                    Text(if (uiState.isSyncing) "Syncing..." else "Sync from desktop")
                 }
             }
         }

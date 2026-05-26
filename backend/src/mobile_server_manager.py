@@ -133,9 +133,9 @@ class MobileServerManager:
         command = self._build_command(host, port)
         env = os.environ.copy()
         env["CRACKED_OURA_DISABLE_MOBILE_AUTOSTART"] = "1"
-
-        if getattr(sys, "frozen", False):
-            env["CRACKED_OURA_RUN_MODE"] = "mobile_server"
+        env["CRACKED_OURA_MOBILE_API_ONLY"] = "1"
+        env["CRACKED_OURA_MOBILE_HOST"] = host
+        env["CRACKED_OURA_MOBILE_PORT"] = str(port)
 
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
         cwd = self._working_directory()

@@ -128,7 +128,7 @@ fun TrendsScreen(
                 eyebrow = "Trends",
                 title = if (points.isEmpty()) "No trend data yet" else metric.title,
                 subtitle = if (windowInsights.isEmpty()) {
-                    "Sync from the desktop app to see trends."
+                    "Sync from desktop in Settings to copy history from your PC."
                 } else {
                     "${metric.description} Window: ${formatDateRange(windowInsights.firstOrNull()?.day, windowInsights.lastOrNull()?.day)}."
                 },

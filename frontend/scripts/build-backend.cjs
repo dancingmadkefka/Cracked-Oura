@@ -29,7 +29,9 @@ console.log('Building backend...');
 console.log('  Backend dir:', backendDir);
 console.log('  Python:    ', pythonPath);
 
-execFileSync(pythonPath, ['-m', 'PyInstaller', '--noconfirm', 'build.spec'], {
-    cwd: backendDir,
-    stdio: 'inherit',
-});
+// Use dist-packaged so a locked legacy backend/dist tree cannot block rebuilds.
+execFileSync(
+    pythonPath,
+    ['-m', 'PyInstaller', '--noconfirm', '--distpath', 'dist-packaged', 'build.spec'],
+    { cwd: backendDir, stdio: 'inherit' },
+);

@@ -32,4 +32,18 @@ oura-downloads/
 # Android
 android-mobile/.gradle/
 android-mobile/local.properties
+android-mobile/app/build/
 *.iml
+
+# Desktop / Electron build outputs
+frontend/release/
+frontend/release2/
+frontend/release3/
+frontend/release4/
+frontend/dist-ui/
+frontend/dist-build/
+frontend/app-asar-unpack/
+frontend/asar-patch/
+backend/dist-packaged/
+mobile-mockup.html
+phone-today.png

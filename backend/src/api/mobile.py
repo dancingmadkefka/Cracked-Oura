@@ -1,6 +1,7 @@
 import json
 import ipaddress
 import logging
+import os
 import secrets
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -31,7 +32,12 @@ from ..insights import (
 
 logger = logging.getLogger("MobileAPI")
 
-router = APIRouter(tags=["mobile"])
+mobile_client_router = APIRouter(tags=["mobile"])
+mobile_admin_router = APIRouter(tags=["mobile-admin"])
+# Desktop app includes both; the LAN mobile process includes only mobile_client_router.
+router = APIRouter()
+router.include_router(mobile_client_router)
+router.include_router(mobile_admin_router)
 
 DEFAULT_WINDOW_DAYS = 180
 DEFAULT_BIND_HOST = "0.0.0.0"
@@ -602,12 +608,21 @@ def _build_today_insights(db: Session, day: Optional[date]) -> Optional[MobileTo
 
 
 def _build_mobile_sync_freshness(db: Session) -> MobileSyncFreshness:
+    """Report desktop ingest/sync state for the phone without starting Oura automation."""
+    if os.environ.get("CRACKED_OURA_MOBILE_API_ONLY") == "1":
+        fresh = build_sync_freshness(db, mobile_server_state=None)
+        payload = fresh.to_dict()
+        cfg = config_manager.get_config()
+        payload["mobile_server_enabled"] = bool(cfg.get("mobile_sync_enabled", False))
+        payload["mobile_server_status"] = "Read-only LAN API"
+        return MobileSyncFreshness(**payload)
+
     state = mobile_server_manager.reconcile()
     fresh = build_sync_freshness(db, state)
     return MobileSyncFreshness(**fresh.to_dict())
 
 
-@router.get("/api/mobile/settings", response_model=MobileSettingsResponse)
+@mobile_admin_router.get("/api/mobile/settings", response_model=MobileSettingsResponse)
 def get_mobile_settings(db: Session = Depends(get_db)):
     settings = _mobile_settings()
     latest_day = _latest_day(db)
@@ -626,7 +641,7 @@ def get_mobile_settings(db: Session = Depends(get_db)):
     )
 
 
-@router.post("/api/mobile/settings", response_model=MobileSettingsResponse)
+@mobile_admin_router.post("/api/mobile/settings", response_model=MobileSettingsResponse)
 def update_mobile_settings(
     request: MobileSettingsUpdate, db: Session = Depends(get_db)
 ):
@@ -664,7 +679,7 @@ def update_mobile_settings(
     return get_mobile_settings(db)
 
 
-@router.get("/api/mobile/ping", response_model=MobileServerStatusResponse)
+@mobile_client_router.get("/api/mobile/ping", response_model=MobileServerStatusResponse)
 def mobile_ping(
     _: Dict[str, Any] = Depends(_require_mobile_token),
     db: Session = Depends(get_db),
@@ -679,7 +694,7 @@ def mobile_ping(
     )
 
 
-@router.get("/api/mobile/sync", response_model=MobileSyncResponse)
+@mobile_client_router.get("/api/mobile/sync", response_model=MobileSyncResponse)
 def mobile_sync(
     window_days: Optional[int] = Query(default=None, ge=7, le=730),
     _: Dict[str, Any] = Depends(_require_mobile_token),
@@ -694,7 +709,7 @@ def mobile_sync(
         raise HTTPException(status_code=500, detail=f"Sync failed: {exc}")
 
 
-@router.get("/api/mobile/insights/{day}", response_model=MobileTodayInsights)
+@mobile_client_router.get("/api/mobile/insights/{day}", response_model=MobileTodayInsights)
 def mobile_insights_for_day(
     day: date,
     _: Dict[str, Any] = Depends(_require_mobile_token),

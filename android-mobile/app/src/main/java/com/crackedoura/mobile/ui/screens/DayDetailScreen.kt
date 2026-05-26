@@ -42,8 +42,9 @@ fun DayDetailScreen(
         if (insight == null) {
             item {
                 EmptyStateCard(
-                    title = "Day not cached",
-                    body = "Run a fresh sync to reload this day.",
+                    title = "Day not on this phone",
+                    body = "This date is not in your phone cache yet. Sync from desktop in Settings, " +
+                        "or pick a day you have already copied.",
                 )
             }
             return@LazyColumn
@@ -69,7 +70,7 @@ fun DayDetailScreen(
                     onClick = onSync,
                     enabled = !isSyncing,
                 ) {
-                    Text(if (isSyncing) "Syncing..." else "Refresh cache")
+                    Text(if (isSyncing) "Syncing..." else "Sync from desktop")
                 }
             }
         }

@@ -128,15 +128,79 @@ async def run_full_sync_task(db_session_factory):
     try:
         # Create temp dir for the download
         with tempfile.TemporaryDirectory() as temp_dir:
-            config_manager.update_status("Processing", message="Requesting and waiting for export (this may take hours)...")
-            
-            # This step blocks while waiting for Oura to generate the export
+            # If Oura already emailed that the export is ready, download it first.
+            config_manager.update_status(
+                "Processing",
+                message="Checking for a ready export on Oura...",
+            )
+            result = await automator.download_existing_export(temp_dir)
+
+            if isinstance(result, str) and result:
+                zip_path = result
+                config_manager.update_status(
+                    "Processing",
+                    message=f"Downloaded to {zip_path}. Ingesting...",
+                )
+                logger.info("Full sync: Downloaded existing export to %s", zip_path)
+                db = db_session_factory()
+                try:
+                    parser = OuraParser(db)
+                    parser.parse_zip(zip_path)
+                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    config_manager.update_status(
+                        "Idle",
+                        message="Sync and ingestion complete!",
+                        last_run=now_str,
+                    )
+                except Exception as e:
+                    logger.error("Full sync: Ingestion partial failure: %s", e)
+                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    config_manager.update_status(
+                        "Idle",
+                        message=f"Sync complete (partial: {e})",
+                        last_run=now_str,
+                    )
+                finally:
+                    db.close()
+                return
+
+            if isinstance(result, dict) and result.get("status") == "otp_required":
+                waiting_for_otp = True
+                from backend.src.otp_state import mark_otp_requested, otp_prompt_message
+
+                if result.get("code_sent"):
+                    mark_otp_requested()
+                cfg = config_manager.get_config()
+                config_manager.update_status(
+                    "otp_needed",
+                    message=otp_prompt_message(cfg, "Check your email for a verification code."),
+                )
+                logger.warning("Full sync paused: OTP required.")
+                return
+
+            config_manager.update_status(
+                "Processing",
+                message="Requesting and waiting for export (this may take hours)...",
+            )
+            config_manager.update_config(
+                last_export_request_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+
+            # No ready file yet — request generation and wait.
             result = await automator.request_new_export_and_download(temp_dir)
             
             # Handle OTP requirement — keep session alive so user can submit code
             if isinstance(result, dict) and result.get("status") == "otp_required":
                 waiting_for_otp = True
-                config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
+                from backend.src.otp_state import mark_otp_requested, otp_prompt_message
+
+                if result.get("code_sent"):
+                    mark_otp_requested()
+                cfg = config_manager.get_config()
+                config_manager.update_status(
+                    "otp_needed",
+                    message=otp_prompt_message(cfg, "Check your email for a verification code."),
+                )
                 logger.warning("Full sync paused: OTP required. Waiting for user to submit code.")
                 return
 
@@ -162,9 +226,15 @@ async def run_full_sync_task(db_session_factory):
                     config_manager.update_status("Idle", message=f"Sync complete (partial: {e})", last_run=now_str)
                 finally:
                     db.close()
+            elif isinstance(result, dict) and result.get("status") == "error":
+                logger.error("Full sync failed: %s", result.get("message"))
+                config_manager.update_status("Error", message=result.get("message", "Sync failed"))
             else:
                 logger.error("Full sync failed: No file downloaded.")
-                config_manager.update_status("Error", message="No file downloaded (timeout?)")
+                config_manager.update_status(
+                    "Error",
+                    message="No file downloaded. If Oura emailed you, try Sync now again in a minute.",
+                )
                 
     except Exception as e:
         logger.error(f"Full sync task error: {e}")
@@ -398,9 +468,45 @@ async def chat(
 @router.post("/api/automation/start-login")
 async def start_login(request: LoginRequest):
     """Initiates the login process via Playwright."""
+    from backend.src.otp_state import mark_otp_requested, otp_prompt_message
+
     try:
+        config_manager.update_config(email=request.email)
         result = await automator.start_login(request.email)
+        if isinstance(result, dict) and result.get("status") == "otp_required":
+            if result.get("code_sent"):
+                mark_otp_requested()
+            cfg = config_manager.get_config()
+            config_manager.update_status(
+                "otp_needed",
+                message=otp_prompt_message(cfg, "Check your email for a verification code."),
+                logged_in=False,
+            )
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/automation/resend-otp")
+async def resend_otp():
+    """Ask Oura to send a fresh verification email."""
+    from backend.src.otp_state import otp_prompt_message
+
+    try:
+        result = await automator.resend_otp()
+        if result.get("status") == "otp_required":
+            refreshed = config_manager.get_config()
+            config_manager.update_status(
+                "otp_needed",
+                message=otp_prompt_message(refreshed, result.get("message")),
+                logged_in=False,
+            )
+            return result
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message", "Resend failed"))
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -419,7 +525,9 @@ async def request_export(background_tasks: BackgroundTasks):
 @router.post("/api/automation/check-status")
 async def check_status():
     """Returns the current automation status from the persistent config."""
-    return config_manager.get_config()
+    from backend.src.otp_state import enrich_automation_status
+
+    return enrich_automation_status(config_manager.get_config())
 
 @router.post("/api/automation/download")
 async def download_export(db: Session = Depends(get_db)):
@@ -433,7 +541,15 @@ async def download_export(db: Session = Depends(get_db)):
             
             # Handle OTP requirement — keep session alive and surface to UI
             if isinstance(result, dict) and result.get("status") == "otp_required":
-                config_manager.update_status("otp_needed", message="OTP required. Check your email and enter the code below.")
+                from backend.src.otp_state import mark_otp_requested, otp_prompt_message
+
+                if result.get("code_sent"):
+                    mark_otp_requested()
+                cfg = config_manager.get_config()
+                config_manager.update_status(
+                    "otp_needed",
+                    message=otp_prompt_message(cfg, "Check your email for a verification code."),
+                )
                 raise HTTPException(
                     status_code=409,
                     detail="OTP required. Please enter the code below.",

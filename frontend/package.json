@@ -11,21 +11,23 @@
     "dev:react": "vite",
     "dev:electron": "wait-on tcp:5188 && tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json',JSON.stringify({type:'commonjs'}))\" && cross-env NODE_ENV=development electron .",
     "build:backend": "node scripts/build-backend.cjs",
-    "build": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\" && npm run build:backend && tsc -b && vite build && tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json',JSON.stringify({type:'commonjs'}))\" && electron-builder",
+    "build": "tsc -b && vite build && npm run build:backend && tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json',JSON.stringify({type:'commonjs'}))\" && electron-builder",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "build": {
     "extraResources": [
       {
-        "from": "../backend/dist/backend",
+        "from": "../backend/dist-packaged/backend",
         "to": "backend"
       }
     ],
     "files": [
-      "dist/**/*",
       "dist-electron/**/*"
     ],
+    "directories": {
+      "output": "release4"
+    },
     "appId": "com.elmoahorinta.crackedoura",
     "productName": "Cracked Oura",
     "mac": {

@@ -136,9 +136,9 @@ private sealed class AppDestination(
 
     data object Ai : AppDestination(
         route = "ai",
-        label = "AI",
-        title = "AI Analyst",
-        icon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI Analyst") },
+        label = "Advisor",
+        title = "Advisor",
+        icon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = "Advisor") },
     )
 
     data object Explorer : AppDestination(
@@ -289,7 +289,6 @@ fun OuraMobileApp(viewModel: MainViewModel, repository: OuraRepository) {
                         insights = insights,
                         isRefreshing = uiState.isSyncing,
                         onRefresh = viewModel::syncNow,
-                        onSync = viewModel::syncNow,
                         onOpenDayDetail = { day ->
                             navController.navigate(AppDestination.DayDetail.createRoute(day))
                         },

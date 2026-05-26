@@ -6,6 +6,12 @@ import { X, Loader2, Copy, LogOut, RefreshCw } from "lucide-react";
 import { cn, parseLocalDate } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { api, type AutomationStatusResponse, type MobileSyncSettings } from '@/lib/api';
+import {
+    automationStatusLabel,
+    isOuraSessionActive,
+    needsOuraReauth,
+} from '@/lib/automation-status';
+import { otpExpiryHint } from '@/lib/otp-timing';
 import { formatDistanceToNow } from 'date-fns';
 import { useSyncFreshness } from '@/hooks/useInsights';
 import { SyncFreshnessChip } from '@/components/health/InsightsPanels';
@@ -23,6 +29,9 @@ interface AutomationState {
     nextRun: string | null;
     message: string | null;
     loggedIn: boolean;
+    otpRequestedAt: string | null;
+    otpExpired: boolean | null;
+    otpMinutesRemaining: number | null;
 }
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
@@ -46,22 +55,27 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    const mapAutomationStatus = useCallback((data: AutomationStatusResponse): AutomationState => ({
+        status: data.status as BackendStatus,
+        email: data.email || '',
+        lastRun: data.last_run || null,
+        nextRun: data.next_run || null,
+        message: data.message || null,
+        loggedIn: isOuraSessionActive(data),
+        otpRequestedAt: data.otp_requested_at ?? null,
+        otpExpired: data.otp_expired ?? null,
+        otpMinutesRemaining: data.otp_minutes_remaining ?? null,
+    }), []);
+
     const fetchStatus = useCallback(async () => {
         try {
             const data = await api.checkStatus();
-            setAutomation({
-                status: data.status,
-                email: data.email || '',
-                lastRun: data.last_run || null,
-                nextRun: data.next_run || null,
-                message: data.message || null,
-                loggedIn: data.logged_in || false,
-            });
+            setAutomation(mapAutomationStatus(data));
             if (data.email) setEmail(data.email);
         } catch (err) {
             console.error("Failed to fetch status", err);
         }
-    }, []);
+    }, [mapAutomationStatus]);
 
     // Fetch initial state on mount
     useEffect(() => {
@@ -97,13 +111,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         pollRef.current = setInterval(async () => {
             try {
                 const data = await api.checkStatus();
-                setAutomation(prev => prev ? {
-                    ...prev,
-                    status: data.status,
-                    lastRun: data.last_run || prev.lastRun,
-                    nextRun: data.next_run || prev.nextRun,
-                    message: data.message || prev.message,
-                } : null);
+                setAutomation(prev => {
+                    const mapped = mapAutomationStatus(data);
+                    return prev ? {
+                        ...mapped,
+                        lastRun: data.last_run || prev.lastRun,
+                        nextRun: data.next_run || prev.nextRun,
+                    } : mapped;
+                });
 
                 if (data.status === 'completed' || data.status === 'ready_to_download') {
                     if (pollRef.current) clearInterval(pollRef.current);
@@ -123,7 +138,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     if (pollRef.current) clearInterval(pollRef.current);
                     setError(data.message || "Sync failed");
                     setLoading(false);
-                } else if (data.status === 'otp_needed' || data.status === 'Waiting') {
+                } else if (needsOuraReauth(data.status, data.message)) {
                     if (pollRef.current) clearInterval(pollRef.current);
                     setLoading(false);
                 }
@@ -131,7 +146,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 console.error("Polling error", err);
             }
         }, 5000);
-    }, []);
+    }, [mapAutomationStatus]);
 
     const handleAutoDownload = async () => {
         setLoading(true);
@@ -155,11 +170,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setAutomation(prev => prev ? { ...prev, status: 'Idle', message: null } : prev);
         try {
             await api.saveSettings({ daily_sync_time: dailySyncTime, email });
-            const data = await api.startLogin(email);
-            setAutomation(prev => prev
-                ? { ...prev, status: 'otp_needed', email, message: data?.message || null }
-                : { status: 'otp_needed', email, lastRun: null, nextRun: null, message: data?.message || null, loggedIn: false }
-            );
+            await api.startLogin(email);
+            await fetchStatus();
         } catch (err: any) {
             setError(err?.message || 'Login failed');
         } finally {
@@ -172,14 +184,30 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setLoading(true);
         setError(null);
         try {
-            // If we were waiting for OTP during a sync, resume it automatically
-            const action = automation?.status === 'otp_needed' ? 'run' : 'test';
-            const data = await api.submitOtp(otp, action);
-            setAutomation(prev => prev ? { ...prev, status: 'logged_in', message: data?.message || null, loggedIn: true } : null);
+            const resumeSync = needsOuraReauth(automation?.status, automation?.message);
+            const action = resumeSync ? 'run' : 'test';
+            await api.submitOtp(otp, action);
+            setOtp('');
+            await fetchStatus();
+            if (resumeSync) {
+                startPolling();
+            }
+        } catch (err: any) {
+            setError(err?.message || 'Invalid code');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            await api.resendOtp();
             setOtp('');
             await fetchStatus();
         } catch (err: any) {
-            setError(err?.message || 'Invalid code');
+            setError(err?.message || 'Failed to send a new code');
         } finally {
             setLoading(false);
         }
@@ -208,7 +236,17 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setLoading(true);
         try {
             await api.clearSession();
-            setAutomation({ status: 'Idle', email: '', lastRun: null, nextRun: null, message: null, loggedIn: false });
+            setAutomation({
+                status: 'Idle',
+                email: '',
+                lastRun: null,
+                nextRun: null,
+                message: null,
+                loggedIn: false,
+                otpRequestedAt: null,
+                otpExpired: null,
+                otpMinutesRemaining: null,
+            });
             setError(null);
         } catch (err: any) {
             setError(err?.message || 'Failed to log out');
@@ -276,11 +314,26 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         }
     };
 
-    const isLoggedIn = automation?.loggedIn === true;
+    const isWaitingForOtp = needsOuraReauth(automation?.status, automation?.message);
     const isExporting = automation?.status === 'Processing' || automation?.status === 'Ingesting';
-    const isWaitingForOtp = automation?.status === 'Waiting' || automation?.status === 'otp_needed';
     const isError = automation?.status === 'Error';
+    const isLoggedIn = automation?.loggedIn === true && !isWaitingForOtp && !isError;
+    const otpHint = automation
+        ? otpExpiryHint({
+            otp_expired: automation.otpExpired,
+            otp_requested_at: automation.otpRequestedAt,
+            otp_minutes_remaining: automation.otpMinutesRemaining,
+        })
+        : null;
     const isBusy = loading || isExporting;
+    const connectionLabel = automation
+        ? automationStatusLabel({
+            status: automation.status,
+            message: automation.message ?? undefined,
+            logged_in: automation.loggedIn,
+            email: automation.email,
+        })
+        : 'Loading…';
 
     return (
         <div className="w-[420px] glass-panel flex flex-col h-full shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
@@ -305,20 +358,22 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                         <div className="flex items-center gap-2">
                             <div className={cn(
                                 "h-2.5 w-2.5 rounded-full shrink-0",
-                                isLoggedIn && !isError ? "bg-green-500" :
                                 isWaitingForOtp ? "bg-yellow-500 animate-pulse" :
+                                isLoggedIn && !isError ? "bg-green-500" :
                                 isExporting ? "bg-yellow-500 animate-pulse" :
                                 isError ? "bg-red-500" :
                                 "bg-gray-500"
                             )} />
                             <span className="text-sm font-medium">
-                                {isLoggedIn && !isError && `Logged in as ${automation?.email}`}
-                                {isWaitingForOtp && `Waiting for code`}
-                                {isExporting && "Syncing..."}
-                                {isError && "Something went wrong"}
-                                {!isLoggedIn && !isWaitingForOtp && !isExporting && !isError && "Not logged in"}
+                                {connectionLabel}
                             </span>
                         </div>
+
+                        {isWaitingForOtp && automation?.message && (
+                            <p className="text-xs text-yellow-200/80 leading-relaxed">
+                                {automation.message}
+                            </p>
+                        )}
 
                         {/* Last sync info */}
                         {isLoggedIn && automation?.lastRun && (
@@ -373,6 +428,29 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                 <p className="text-xs text-muted-foreground">
                                     Enter the code sent to <span className="font-medium text-foreground">{automation?.email}</span>
                                 </p>
+                                {otpHint && (
+                                    <p className={cn(
+                                        "text-xs rounded-md px-3 py-2 leading-relaxed",
+                                        automation?.otpExpired
+                                            ? "text-amber-100/90 bg-amber-500/15 border border-amber-500/25"
+                                            : "text-muted-foreground bg-white/[0.04]",
+                                    )}>
+                                        {otpHint}
+                                    </p>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={handleResendOtp}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                    )}
+                                    Send new code
+                                </Button>
                                 <div className="flex gap-2">
                                     <Input
                                         placeholder="123456"
@@ -392,7 +470,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                     disabled={loading}
                                 >
                                     <LogOut className="h-3 w-3" />
-                                    Wrong email? Start over
+                                    Use a different email
                                 </button>
                             </div>
                         )}
@@ -469,7 +547,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                             }
                         </Button>
                         <p className="text-[10px] text-muted-foreground text-center">
-                            Requests fresh data from Oura and ingests it
+                            Downloads a ready export first, then requests a new one if needed
                         </p>
                     </div>
 
@@ -639,6 +717,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                                 {mobileSync.server_status}
                             </p>
                         )}
+                        <p className="text-xs text-white/35 leading-relaxed">
+                            Read-only LAN API for your phone. Oura login and daily export stay on this desktop app only.
+                        </p>
                         <p className="text-xs text-muted-foreground font-mono">
                             http://&lt;pc-or-tailscale-ip&gt;:{mobileSyncPort || "8037"}
                         </p>

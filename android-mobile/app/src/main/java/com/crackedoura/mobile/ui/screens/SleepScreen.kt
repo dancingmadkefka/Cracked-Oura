@@ -70,7 +70,7 @@ fun SleepScreen(
                     eyebrow = "Sleep",
                     title = latest?.let { formatDayLabel(it.day) } ?: "No sleep data yet",
                     subtitle = if (latest == null) {
-                        "Sync with the desktop app to see your sleep data."
+                        "Sync from desktop in Settings to copy sleep data from your PC."
                     } else {
                         latest.summary.sleepRecommendation?.takeIf { it.isNotBlank() }
                             ?: "Total sleep ${formatDurationSeconds(latest.totalSleepSeconds)}"

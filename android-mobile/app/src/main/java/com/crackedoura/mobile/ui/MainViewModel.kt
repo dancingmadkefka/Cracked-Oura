@@ -125,12 +125,12 @@ class MainViewModel(private val repository: OuraRepository) : ViewModel() {
         if (syncState.value.isSyncing) return
 
         viewModelScope.launch {
-            syncState.value = SyncUiState(isSyncing = true, syncMessage = "Sync in progress...")
+            syncState.value = SyncUiState(isSyncing = true, syncMessage = "Copying from desktop…")
             val result = repository.syncNow()
             syncState.value = SyncUiState(
                 isSyncing = false,
                 syncMessage = if (result.isSuccess) {
-                    "Sync complete."
+                    "Phone cache updated from desktop."
                 } else {
                     result.exceptionOrNull()?.message ?: "Sync failed."
                 },

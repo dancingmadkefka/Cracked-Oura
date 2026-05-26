@@ -193,7 +193,10 @@ class OuraAutomator:
         """Clears stored session file and closes browser resources."""
         self._login_in_progress = False
         await self.cleanup()
+        from .otp_state import clear_otp_request
+
         config_manager.update_config(logged_in=False)
+        clear_otp_request()
         if os.path.exists(self.storage_state_path):
             os.remove(self.storage_state_path)
             logger.info("Session file removed.")
@@ -351,10 +354,15 @@ class OuraAutomator:
             "input[inputmode='numeric']",
         ]
 
+        code_sent = False
         if await intermediate_btn.is_visible():
             # Always click Send Code to ensure Oura actually emails a code
             logger.info("Found intermediate 'Send Code' button. Clicking...")
             await intermediate_btn.click()
+            code_sent = True
+            from .otp_state import mark_otp_requested
+
+            mark_otp_requested()
             # Oura's redirect after Send Code navigates to a new page.
             try:
                 await self._ensure_page_alive()
@@ -370,9 +378,70 @@ class OuraAutomator:
         for selector in otp_selectors:
             if await self.page.locator(selector).first.is_visible():
                 logger.info(f"OTP Login required (selector: {selector}).")
-                return {"status": "otp_required", "message": "OTP required"}
+                return {
+                    "status": "otp_required",
+                    "message": "OTP required",
+                    "code_sent": code_sent,
+                }
 
         return None
+
+    async def _trigger_send_code(self) -> bool:
+        """Clicks Oura's send-code control when present. Returns True if clicked."""
+        if not self.page:
+            return False
+        intermediate_btn = self.page.locator("button[name='selectedId']")
+        if await intermediate_btn.is_visible():
+            logger.info("Clicking Oura 'Send code' button.")
+            await intermediate_btn.click()
+            try:
+                await self._ensure_page_alive()
+                await self.page.wait_for_timeout(3000)
+            except Exception:
+                pass
+            return True
+        return False
+
+    async def resend_otp(self) -> Dict[str, str]:
+        """Request a fresh verification email from Oura."""
+        cfg = config_manager.get_config()
+        email = (cfg.get("email") or self.email or "").strip()
+        if not email:
+            return {"status": "error", "message": "No email configured."}
+
+        self.email = email
+        self._login_in_progress = True
+        try:
+            if not self._is_initialized:
+                await self.initialize(headless=cfg.get("headless", True))
+            await self._ensure_page_alive()
+
+            if await self._trigger_send_code():
+                from .otp_state import mark_otp_requested
+
+                mark_otp_requested()
+                return {
+                    "status": "otp_required",
+                    "message": "A new verification code was sent to your email.",
+                    "code_sent": True,
+                }
+
+            login_res = await self.login()
+            if login_res and login_res.get("status") == "otp_required":
+                return {
+                    "status": "otp_required",
+                    "message": "A new verification code was sent to your email.",
+                    "code_sent": bool(login_res.get("code_sent")),
+                }
+            return {
+                "status": "error",
+                "message": "Could not reach Oura's verification screen. Try logging in again.",
+            }
+        except Exception as e:
+            logger.error(f"resend_otp failed: {e}")
+            return {"status": "error", "message": str(e)}
+        finally:
+            self._login_in_progress = False
 
     async def submit_otp(self, otp: str):
         """Submits the provided OTP code to the active session."""
@@ -457,6 +526,9 @@ class OuraAutomator:
                 logger.info("OTP Accepted. Login successful.")
                 await self.save_context()
                 self._login_in_progress = False
+                from .otp_state import clear_otp_request
+
+                clear_otp_request()
                 config_manager.update_config(logged_in=True)
                 return {"status": "success", "message": "Login successful!"}
 
@@ -471,7 +543,10 @@ class OuraAutomator:
                     continue
 
             if invalid_code:
-                return {"status": "error", "message": "Invalid OTP code."}
+                return {
+                    "status": "error",
+                    "message": "Invalid or expired OTP code. Request a new code and try again.",
+                }
 
             return {"status": "error", "message": f"Login failed (Unknown state). Current URL: {self.page.url}"}
 
@@ -480,6 +555,27 @@ class OuraAutomator:
             return {"status": "error", "message": str(e)}
 
     # --- Data Export Logic ---
+
+    async def _is_export_download_ready(self) -> bool:
+        """True when Oura's export page shows a download control."""
+        if not self.page:
+            return False
+        download_indicators = [
+            "button[aria-label='Download data']",
+            "button[aria-label='Download your data']",
+            "button:has-text('Download your data')",
+            "button:has-text('Download data')",
+            "button:has-text('Download')",
+            "a[download]",
+            "a:has-text('Download')",
+        ]
+        for sel in download_indicators:
+            try:
+                if await self.page.locator(sel).first.is_visible(timeout=1500):
+                    return True
+            except Exception:
+                continue
+        return False
 
     async def request_new_export_and_download(self, save_dir: str) -> Optional[str]:
         """
@@ -508,21 +604,29 @@ class OuraAutomator:
                     if not await self._navigate_to_export_page():
                         return None
                 else:
-                    return None
+                    return {"status": "error", "message": "Could not open Oura data export page."}
 
-            # 2. Click Request Button (if available)
+            # 2. If Oura already has a file ready (email sent), download immediately.
+            if await self._is_export_download_ready():
+                logger.info("Export already ready on Oura — downloading without a new request.")
+                return await self._download_file(save_dir)
+
+            # 3. Click Request Button (if available)
             if await self._click_request_export_button():
                 logger.info("Export requested. Waiting for processing...")
             else:
                 logger.info("Export might already be requested or button not found.")
 
-            # 3. Wait for Processing
+            # 4. Wait for Processing
             is_ready = await self._wait_for_processing()
             if not is_ready:
                 logger.warning("Timed out waiting for export processing.")
-                return None
+                return {
+                    "status": "error",
+                    "message": "Export is not ready on Oura yet. If you received the email, try again in a minute.",
+                }
 
-            # 4. Download
+            # 5. Download
             return await self._download_file(save_dir)
 
         except Exception as e:
@@ -550,9 +654,15 @@ class OuraAutomator:
                         return {"status": "otp_required"}
                     # Login succeeded, retry navigation
                     if not await self._navigate_to_export_page():
-                        return None
+                        return {"status": "error", "message": "Could not open Oura data export page."}
                 else:
-                    return None
+                    return {"status": "error", "message": "Could not open Oura data export page."}
+
+            if not await self._is_export_download_ready():
+                return {
+                    "status": "error",
+                    "message": "No downloadable export on Oura right now. Request a new export first.",
+                }
 
             return await self._download_file(save_dir)
 
@@ -649,33 +759,34 @@ class OuraAutomator:
 
     async def _wait_for_processing(self) -> bool:
         """Polls until the export is ready (download button appears)."""
-        max_retries = 30 # Approx 2.5 hours total wait time
-        poll_interval = 300 # 5 minutes between checks
-        
+        # Fast polls first — email often arrives within a few minutes.
+        for i in range(24):  # ~12 minutes at 30s
+            if await self._is_export_download_ready():
+                logger.info("Export ready during fast polling.")
+                return True
+            logger.info(f"Processing... fast check {i + 1}/24")
+            await self.page.wait_for_timeout(30_000)
+            try:
+                await self.page.reload(timeout=30_000)
+                await self.page.wait_for_load_state("networkidle", timeout=15_000)
+            except Exception as e:
+                logger.warning(f"Page reload failed: {e}")
+
+        # Slow polls for long Oura generation queues.
+        max_retries = 24  # ~2 hours at 5 minutes
+        poll_interval = 300
         for i in range(max_retries):
-            # Check if download button is now visible (export ready)
-            download_indicators = [
-                "button[aria-label='Download data']",
-                "button:has-text('Download')",
-                "a[download]",
-            ]
-            for sel in download_indicators:
-                try:
-                    btn = self.page.locator(sel).first
-                    if await btn.is_visible(timeout=2000):
-                        logger.info(f"Export ready! Download button found via {sel}")
-                        return True
-                except Exception:
-                    continue
-            
-            logger.info(f"Processing... (Attempt {i+1}/{max_retries}) - Next check in {poll_interval}s")
+            if await self._is_export_download_ready():
+                logger.info("Export ready during slow polling.")
+                return True
+            logger.info(f"Processing... slow check {i + 1}/{max_retries}")
             await self.page.wait_for_timeout(poll_interval * 1000)
             try:
-                await self.page.reload(timeout=30000)
-                await self.page.wait_for_load_state("networkidle", timeout=15000)
+                await self.page.reload(timeout=30_000)
+                await self.page.wait_for_load_state("networkidle", timeout=15_000)
             except Exception as e:
-                logger.warning(f"Page reload failed: {e}. Retrying...")
-            
+                logger.warning(f"Page reload failed: {e}")
+
         return False
 
     async def _dismiss_cookie_banners(self):
@@ -718,8 +829,12 @@ class OuraAutomator:
         # Try multiple selectors for the download button (Oura's UI varies)
         download_selectors = [
             "button[aria-label='Download data']",
+            "button[aria-label='Download your data']",
+            "button:has-text('Download your data')",
+            "button:has-text('Download data')",
             "button:has-text('Download')",
             "a[download]",
+            "a:has-text('Download')",
             "main button:has-text('Download')",
         ]
         download_btn = None
@@ -746,7 +861,10 @@ class OuraAutomator:
                 except Exception:
                     pass
             logger.warning(f"Download button not found. Visible buttons: {btn_texts}")
-            return None
+            return {
+                "status": "error",
+                "message": "Could not find Oura's download button on the export page.",
+            }
 
         logger.info("Download button found. Clicking...")
         async with self.page.expect_download(timeout=30000) as download_info:

@@ -18,7 +18,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('src', 'backend/src'),  # Map 'src' to 'backend/src' inside bundle so 'backend.src' imports work
-        # Add any other data files here
+        ('../frontend/dist-ui', 'frontend/dist'),  # Desktop UI static assets for packaged backend
     ],
     hiddenimports=[
         'uvicorn.logging',

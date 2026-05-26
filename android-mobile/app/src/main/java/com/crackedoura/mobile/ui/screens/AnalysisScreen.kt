@@ -69,6 +69,12 @@ fun AnalysisScreen(padding: PaddingValues, viewModel: AnalysisViewModel) {
     }
 
     Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Text(
+            text = "Explorer runs queries on your desktop database via the Mobile Sync server — not on Oura directly.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
         TabRow(selectedTabIndex = selectedTab) {
             tabs.forEachIndexed { i, label ->
                 Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(label) })

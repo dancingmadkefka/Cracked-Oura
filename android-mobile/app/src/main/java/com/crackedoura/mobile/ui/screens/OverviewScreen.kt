@@ -76,7 +76,6 @@ fun OverviewScreen(
     insights: List<DailyInsight>,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    onSync: () -> Unit,
     onOpenDayDetail: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
 ) {
@@ -120,18 +119,40 @@ fun OverviewScreen(
                             color = Color.White,
                         )
                         Text(
-                            text = "Sync with the desktop app to get started",
+                            text = "Connect to Cracked Oura on your PC, then copy data to this phone.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.45f),
                         )
                     }
                 }
                 item {
+                    DesktopRoleBanner()
+                }
+                item {
+                    SyncFreshnessCard(
+                        freshness = uiState.syncFreshness,
+                        isPhoneSyncing = uiState.isSyncing,
+                    )
+                }
+                item {
                     SectionCard(
-                        title = "Nothing synced yet",
-                        subtitle = "Add your server address and token in Settings, then tap Sync.",
+                        title = "Get started",
+                        subtitle = "Oura login and export stay on the desktop app.",
                     ) {
-                        Button(onClick = onNavigateToSettings) { Text("Open Settings") }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onNavigateToSettings) { Text("Open Settings") }
+                            if (hasServer && hasToken) {
+                                Button(
+                                    onClick = onRefresh,
+                                    enabled = !isRefreshing,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                    ),
+                                ) {
+                                    Text(if (isRefreshing) "Syncing…" else "Sync from desktop")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -223,11 +244,18 @@ fun OverviewScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (uiState.isSyncing) {
-                                    StatusPill(label = "Syncing…", tone = Color(0xFFFFD166))
+                                    StatusPill(label = "Copying from PC…", tone = Color(0xFFFFD166))
                                 }
                                 SyncFreshnessPill(uiState.syncFreshness)
                             }
                         }
+                    }
+
+                    item {
+                        SyncFreshnessCard(
+                            freshness = uiState.syncFreshness,
+                            isPhoneSyncing = uiState.isSyncing,
+                        )
                     }
 
                     // Core scores — vertical list, ring left / info right

@@ -30,6 +30,7 @@ DEFAULT_CONFIG = {
     "mobile_sync_bind_host": "0.0.0.0",
     "mobile_sync_port": 8037,
     "last_export_request_at": None,
+    "otp_requested_at": None,
 }
 
 DEFAULT_DASHBOARD = {"dashboard": {"dashboards": [], "activeDashboardId": None}}
@@ -134,6 +135,8 @@ class ConfigManager:
         Helper to update status specific fields in the main config.
         Accepts flexible kwargs like 'message', 'last_run', 'next_run'.
         """
+        if status in ("otp_needed", "Waiting"):
+            kwargs.setdefault("logged_in", False)
         self.update_config(status=status, **kwargs)
 
 config_manager = ConfigManager()

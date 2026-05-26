@@ -76,16 +76,17 @@ function createWindow() {
         title: 'Cracked Oura',
     });
     const devUrl = 'http://localhost:5188';
-    const prodPath = path_1.default.join(__dirname, '../dist/index.html');
+    // Production UI is served by the bundled backend on port 8000 (same origin for /api/*).
+    const prodUrl = process.env.CRACKED_OURA_UI_URL || 'http://127.0.0.1:8000/';
     if (isDev) {
         logToDesktop(`Loading DEV URL: ${devUrl}`);
         mainWindow.loadURL(devUrl);
         // mainWindow.webContents.openDevTools();
     }
     else {
-        logToDesktop(`Loading PROD File: ${prodPath}`);
-        mainWindow.loadFile(prodPath).catch(err => {
-            logToDesktop(`FAILED to load file: ${err.message}`);
+        logToDesktop(`Loading PROD URL: ${prodUrl}`);
+        mainWindow.loadURL(prodUrl).catch(err => {
+            logToDesktop(`FAILED to load URL: ${err.message}`);
         });
     }
     mainWindow.once('ready-to-show', () => {
@@ -115,13 +116,13 @@ function waitForBackendReady(timeoutMs = 20000) {
     const start = Date.now();
     return new Promise((resolve, reject) => {
         const attempt = () => {
-            const request = http_1.default.get('http://127.0.0.1:8000/api/mobile/settings', (response) => {
+            const request = http_1.default.get('http://127.0.0.1:8000/', (response) => {
                 response.resume();
-                if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
+                if (response.statusCode === 200) {
                     resolve();
                     return;
                 }
-                retry(new Error(`Backend readiness check returned ${response.statusCode}`));
+                retry(new Error(`Backend UI readiness check returned ${response.statusCode}`));
             });
             request.on('error', (error) => retry(error));
             request.setTimeout(1500, () => request.destroy(new Error('Backend readiness check timed out')));

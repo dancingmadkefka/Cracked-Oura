@@ -1,7 +1,6 @@
-// In dev, use empty string so requests are relative and go through Vite's proxy
-// (configured in vite.config.ts). In production builds, the frontend is served by
-// the FastAPI app itself, so relative paths still resolve to the same origin.
-const BASE_URL = '';
+// In dev, use empty string so requests go through Vite's proxy (vite.config.ts).
+// In production, the Electron window loads from http://127.0.0.1:8000/ (same origin).
+const BASE_URL = import.meta.env.DEV ? '' : '';
 
 export interface AutomationStatusResponse {
     status: string;
@@ -10,6 +9,9 @@ export interface AutomationStatusResponse {
     email?: string;
     last_run?: string | null;
     next_run?: string | null;
+    otp_requested_at?: string | null;
+    otp_expired?: boolean | null;
+    otp_minutes_remaining?: number | null;
 }
 
 export interface ChatMessage {
@@ -249,6 +251,13 @@ export const api = {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'OTP failed');
+        return data;
+    },
+
+    resendOtp: async () => {
+        const res = await fetch(`${BASE_URL}/api/automation/resend-otp`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || data.message || 'Failed to resend code');
         return data;
     },
 

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
+import { Plus, MessageSquare, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatThread } from "@/hooks/useChat";
 
