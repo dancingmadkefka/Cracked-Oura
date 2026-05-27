@@ -64,7 +64,11 @@ export function ActivityView() {
       )}
 
       {insights.contributors && (
-        <ContributorGrid title="Activity contributors" items={insights.contributors.activity} />
+        <ContributorGrid
+          title="Activity contributors"
+          items={insights.contributors.activity}
+          day={dayKey}
+        />
       )}
 
       {insights.baselines && (

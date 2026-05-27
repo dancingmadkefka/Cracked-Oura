@@ -49,7 +49,11 @@ export function ReadinessView() {
       </div>
 
       {insights.contributors && (
-        <ContributorGrid title="Readiness contributors" items={insights.contributors.readiness} />
+        <ContributorGrid
+          title="Readiness contributors"
+          items={insights.contributors.readiness}
+          day={dayKey}
+        />
       )}
 
       {insights.baselines && (

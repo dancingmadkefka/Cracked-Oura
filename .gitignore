@@ -36,11 +36,10 @@ android-mobile/app/build/
 *.iml
 
 # Desktop / Electron build outputs
-frontend/release/
-frontend/release2/
-frontend/release3/
-frontend/release4/
+frontend/release*/
 frontend/dist-ui/
+frontend/main.js
+contributors-mockups*.html
 frontend/dist-build/
 frontend/app-asar-unpack/
 frontend/asar-patch/

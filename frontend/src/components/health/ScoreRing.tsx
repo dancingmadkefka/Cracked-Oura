@@ -12,7 +12,8 @@ interface ScoreRingProps {
 function getScoreLabel(score: number): string {
   if (score >= 85) return 'Optimal';
   if (score >= 70) return 'Good';
-  return 'Pay Attention';
+  if (score >= 55) return 'Fair';
+  return 'Attention';
 }
 
 export function ScoreRing({ score, label, size = 104, strokeWidth = 7, color, onClick }: ScoreRingProps) {
@@ -51,9 +52,9 @@ export function ScoreRing({ score, label, size = 104, strokeWidth = 7, color, on
             style={{ filter: `drop-shadow(0 0 10px ${color}40)` }}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-2">
           <span className="font-serif text-2xl font-bold text-white">{hasData ? normalizedScore : '--'}</span>
-          <span className="text-[10px] uppercase tracking-widest font-medium mt-0.5" style={{ color: hasData ? color : 'rgba(255,255,255,0.3)' }}>
+          <span className="text-[9px] uppercase tracking-wider font-semibold mt-0.5 max-w-full truncate" style={{ color: hasData ? color : 'rgba(255,255,255,0.3)' }}>
             {hasData ? getScoreLabel(normalizedScore) : '/100'}
           </span>
         </div>

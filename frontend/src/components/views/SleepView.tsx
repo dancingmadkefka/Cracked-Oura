@@ -97,7 +97,11 @@ export function SleepView() {
       )}
 
       {insights.contributors && (
-        <ContributorGrid title="Sleep contributors" items={insights.contributors.sleep} />
+        <ContributorGrid
+          title="Sleep contributors"
+          items={insights.contributors.sleep}
+          day={dayKey}
+        />
       )}
 
       {insights.baselines && (

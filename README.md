@@ -12,23 +12,43 @@
 ### Pay for the ring, not for the app that is not even that good
 Oura ring paywalls the data behind a subscription, but luckily you can export your data from Oura and import it to Cracked Oura.
 
-**Cracked Oura** is an open-source desktop application that provides full access to your health metrics, stored locally on your machine.
+**Cracked Oura** is an open-source desktop application that gives you a local dashboard for Oura ring data you already own or export. Metrics live in a SQLite database on your machine.
 
-**Key Benefits**
-- **No Subscription:** See all of your Oura ring data without subscription. 
-- **Privacy First:** Your data is stored locally in an SQLite database. It never leaves your computer unless you export it.
-- **Advanced Analytics:** Visualize trends, correlations, and deeper insights than the standard app provides. 
+**Key benefits**
+- **No Oura app subscription required** to browse data you have imported or synced into the local database.
+- **Privacy first:** Data stays on your computer unless you export it or explicitly enable features (e.g. mobile sync, cloud LLM).
+- **Deeper views:** Trends, baselines, contributor breakdowns, and analysis tools beyond a single-day summary.
 
 <img width="1470" height="916" alt="Cracked Oura front page" src="https://github.com/user-attachments/assets/cda629a9-5072-4a5f-9e5d-6ddb3873c0f0" />
+
+---
+
+## What this app does (and does not)
+
+| Does | Does not |
+|------|----------|
+| Imports Oura **data exports** (ZIP) or automates export requests via your Oura login | Replace the Oura ring firmware, cloud account, or official mobile app |
+| Stores and queries metrics locally (sleep, readiness, activity, workouts, etc.) | Guarantee parity with every chart or feature in the paid Oura app |
+| Shows **Today**, **Sleep**, **Readiness**, and **Activity** views with scores, contributors (with 7-day sparklines), baselines, and guidance | Provide medical advice; insights are informational only |
+| Customizable dashboard widgets and layout editor | Require an Oura subscription for **viewing data you already exported** |
+| Optional **Android companion** sync from desktop ([docs](docs/android-mobile-sync.md)) | Send your health data to our servers (there are none) |
+| Experimental **AI analyst** (local or API LLM, your choice) | Ship as a notarized/signed product on all platforms yet (see [Troubleshooting](#troubleshooting)) |
+
+> **Data source:** You need Oura export data in the local DB—either from [membership.ouraring.com/data-export](https://membership.ouraring.com/data-export) or from the in-app automation flow after signing in. Without data, views show empty states.
+
+> **Not affiliated with Oura Health Oy.** This is an independent open-source project. Use at your own risk.
 
 ---
 
 ## Features
 
 ### Oura ring data without subscription
-See all of your Oura ring data without subscription. Thanks to EU's right to data portability, you can export your data from Oura and import it to Cracked Oura. 
+Browse sleep, readiness, and activity from your **local database**—no ongoing Oura app subscription required for that. Thanks to EU data portability, you can export from Oura and import here, or use in-app automation after login.
 
-**Automation that requests your data from Oura and imports it to Cracked Oura.** This populates the local database with your data. Population can also be done manually by importing a zip file from Oura that you can find in https://membership.ouraring.com/data-export. 
+**Automation** requests exports from Oura and imports them into SQLite. **Manual import** works from a ZIP at [membership.ouraring.com/data-export](https://membership.ouraring.com/data-export).
+
+### Contributor insights (Sleep / Readiness / Activity)
+Per-domain contributor cards show each factor’s score, status, short explanation, and a **7-day sparkline**. On detail views, the lowest-scoring “pay attention” contributor is highlighted as a hero card; **Today** uses compact chips with links into the full breakdown.
 
 <img width="1470" height="916" alt="Cracked Oura automation" src="https://github.com/user-attachments/assets/8aa42539-f014-4254-8885-9d6dfabf13b2" />
 <img width="1470" height="916" alt="Cracked Oura logn term charts" src="https://github.com/user-attachments/assets/6cbd5345-d81e-4000-ade0-a0ea4e21508c" />
@@ -143,11 +163,13 @@ venv\Scripts\activate.bat
 ```
 
 ### Build for Production
-To create a standalone application installer (works on macOS, Windows, and Linux):
+Creates a desktop installer. The UI is built with Vite, bundled into the Python backend via PyInstaller, then packaged with Electron Builder:
+
 ```bash
 cd frontend
 npm run build
-# macOS: outputs a .dmg in frontend/dist/
-# Windows: outputs a Setup .exe in frontend/dist/
-# Linux: outputs .AppImage and .deb in frontend/dist/
+# Installer output: frontend/release*/ (e.g. Cracked Oura Setup *.exe on Windows)
+# macOS: .dmg · Windows: NSIS .exe · Linux: AppImage / .deb
 ```
+
+> On Windows, if a previous install is running, quit the app before rebuilding so `app.asar` is not locked.

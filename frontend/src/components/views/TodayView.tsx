@@ -28,7 +28,8 @@ function getScoreColor(score: number, type: 'readiness' | 'sleep' | 'activity'):
 function getScoreLabel(score: number): string {
   if (score >= 85) return 'Optimal';
   if (score >= 70) return 'Good';
-  return 'Pay Attention';
+  if (score >= 55) return 'Fair';
+  return 'Attention';
 }
 
 export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
@@ -210,12 +211,31 @@ export function TodayView({ onNavigate, timeOfDay }: TodayViewProps) {
         )}
       </div>
 
-      {/* Contributors (sleep / readiness / activity) */}
+      {/* Contributors (sleep / readiness / activity) — compact summaries on Today,
+          full hero + tile breakdown lives on the dedicated views */}
       {insights.contributors && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ContributorGrid title="Sleep contributors" items={insights.contributors.sleep} />
-          <ContributorGrid title="Readiness contributors" items={insights.contributors.readiness} />
-          <ContributorGrid title="Activity contributors" items={insights.contributors.activity} />
+        <div className="space-y-3 min-w-0">
+          <ContributorGrid
+            variant="compact"
+            title="Sleep contributors"
+            items={insights.contributors.sleep}
+            day={dayKey}
+            onOpen={() => onNavigate('sleep')}
+          />
+          <ContributorGrid
+            variant="compact"
+            title="Readiness contributors"
+            items={insights.contributors.readiness}
+            day={dayKey}
+            onOpen={() => onNavigate('readiness')}
+          />
+          <ContributorGrid
+            variant="compact"
+            title="Activity contributors"
+            items={insights.contributors.activity}
+            day={dayKey}
+            onOpen={() => onNavigate('activity')}
+          />
         </div>
       )}
 
@@ -280,9 +300,9 @@ function ScoreRingCard({
               style={{ filter: `drop-shadow(0 0 10px ${strokeColor}40)` }}
             />
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-2">
             <span className="font-serif text-2xl font-bold text-white">{score ?? '--'}</span>
-            <span className="text-[10px] uppercase tracking-widest font-medium mt-0.5" style={{ color: score != null ? strokeColor : 'rgba(255,255,255,0.3)' }}>
+            <span className="text-[9px] uppercase tracking-wider font-semibold mt-0.5 max-w-full truncate" style={{ color: score != null ? strokeColor : 'rgba(255,255,255,0.3)' }}>
               {label}
             </span>
           </div>
