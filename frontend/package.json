@@ -1,7 +1,7 @@
 {
   "name": "cracked-oura",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.0",
   "description": "Cracked Oura Dashboard",
   "author": "Elmo Ahorinta",
   "type": "module",
@@ -26,7 +26,7 @@
       "dist-electron/**/*"
     ],
     "directories": {
-      "output": "release4"
+      "output": "dist"
     },
     "appId": "com.elmoahorinta.crackedoura",
     "productName": "Cracked Oura",

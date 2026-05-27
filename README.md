@@ -76,8 +76,8 @@ Cracked Oura can leverage local LLMs to analyze your health data and provide ins
 
 ### Installation
 1.  **Download** the latest release for your operating system:
-    -   [Download for macOS (.dmg)](https://github.com/EIrno/Cracked-Oura/releases)
-    -   [Download for Windows (.exe)](https://github.com/EIrno/Cracked-Oura/releases) *(when available in release assets)*
+    -   [**GitHub Releases**](https://github.com/dancingmadkefka/Cracked-Oura/releases) — Windows installer (`.exe`) is built automatically for each version tag
+    -   macOS `.dmg` / Linux packages — build from source until CI supports them ([releasing guide](docs/RELEASING.md))
 
 2.  **Install & Run** the application.
 3.  **Login** to your Oura account when prompted to sync your historical data.
@@ -168,8 +168,12 @@ Creates a desktop installer. The UI is built with Vite, bundled into the Python 
 ```bash
 cd frontend
 npm run build
-# Installer output: frontend/release*/ (e.g. Cracked Oura Setup *.exe on Windows)
+# Installer output: frontend/dist/ (e.g. Cracked Oura Setup 0.2.0.exe on Windows)
 # macOS: .dmg · Windows: NSIS .exe · Linux: AppImage / .deb
 ```
 
-> On Windows, if a previous install is running, quit the app before rebuilding so `app.asar` is not locked.
+> On Windows, quit any running Cracked Oura instance before rebuilding so output files are not locked.
+
+### Publishing a release
+
+See **[docs/RELEASING.md](docs/RELEASING.md)** for tagging, CI automation, and manual upload steps.

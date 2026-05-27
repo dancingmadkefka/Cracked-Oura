@@ -6,7 +6,7 @@ on:
       - main
   push:
     branches:
-      - windows-build-support
+      - main
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         shell: pwsh
@@ -58,6 +58,6 @@ jobs:
           name: cracked-oura-windows-build
           path: |
             frontend/dist/*.exe
-            frontend/dist/*.yml
+            frontend/dist/*.exe.blockmap
             frontend/dist/win-unpacked/**
           if-no-files-found: error

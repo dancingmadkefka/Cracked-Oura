@@ -37,6 +37,7 @@ android-mobile/app/build/
 
 # Desktop / Electron build outputs
 frontend/release*/
+frontend/dist/
 frontend/dist-ui/
 frontend/main.js
 contributors-mockups*.html
